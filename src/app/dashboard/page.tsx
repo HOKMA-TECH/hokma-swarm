@@ -1,3 +1,76 @@
-export default function DashboardPage() {
-  return <div style={{ padding: 24, color: '#f0f0f0' }}>Dashboard — em breve</div>
+import { createClient } from '@/lib/supabase/server'
+import { KpiCard } from '@/components/dashboard/KpiCard'
+import { LeadsBarChart } from '@/components/dashboard/LeadsBarChart'
+import { StageDonut } from '@/components/dashboard/StageDonut'
+import { RecentLeads } from '@/components/dashboard/RecentLeads'
+import { format, subDays } from 'date-fns'
+import type { Stage } from '@/types/database'
+
+export default async function DashboardPage() {
+  const supabase = await createClient()
+
+  const today = new Date()
+  const todayStr = format(today, 'yyyy-MM-dd')
+  const monthStart = format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd')
+  const thirtyDaysAgo = subDays(today, 30).toISOString()
+
+  const [
+    { count: leadsHoje },
+    { count: emAtendimento },
+    { count: fechamentos },
+    { data: stageData },
+    { data: dailyRaw },
+    { data: recentLeads },
+  ] = await Promise.all([
+    supabase.from('leads').select('*', { count: 'exact', head: true })
+      .gte('created_at', `${todayStr}T00:00:00`),
+    supabase.from('leads').select('*', { count: 'exact', head: true })
+      .not('stage', 'in', '("concluido","desistencia")'),
+    supabase.from('leads').select('*', { count: 'exact', head: true })
+      .eq('stage', 'concluido').gte('created_at', `${monthStart}T00:00:00`),
+    supabase.from('leads').select('stage').gte('created_at', thirtyDaysAgo),
+    supabase.from('leads').select('created_at').gte('created_at', thirtyDaysAgo),
+    supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(8),
+  ])
+
+  const stageCounts = (stageData ?? []).reduce<Record<string, number>>((acc, { stage }) => {
+    acc[stage] = (acc[stage] ?? 0) + 1
+    return acc
+  }, {})
+  const stageChartData = Object.entries(stageCounts).map(([stage, count]) => ({ stage: stage as Stage, count }))
+
+  const dailyCounts = (dailyRaw ?? []).reduce<Record<string, number>>((acc, { created_at }) => {
+    const d = format(new Date(created_at), 'dd/MM')
+    acc[d] = (acc[d] ?? 0) + 1
+    return acc
+  }, {})
+  const barData = Array.from({ length: 30 }, (_, i) => {
+    const d = format(subDays(today, 29 - i), 'dd/MM')
+    return { date: d, count: dailyCounts[d] ?? 0 }
+  })
+
+  const totalLeads = stageData?.length ?? 1
+  const taxaConversao = totalLeads > 0 ? ((fechamentos ?? 0) / totalLeads * 100).toFixed(1) : '0.0'
+
+  return (
+    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ height: 40, display: 'flex', alignItems: 'center' }}>
+        <h1 style={{ fontSize: 16, fontWeight: 600 }}>Dashboard</h1>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        <KpiCard label="Leads Hoje" value={leadsHoje ?? 0} />
+        <KpiCard label="Em Atendimento" value={emAtendimento ?? 0} />
+        <KpiCard label="Fechamentos (mês)" value={fechamentos ?? 0} highlight />
+        <KpiCard label="Taxa de Conversão" value={`${taxaConversao}%`} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
+        <LeadsBarChart data={barData} />
+        <StageDonut data={stageChartData} />
+      </div>
+
+      <RecentLeads leads={recentLeads ?? []} />
+    </div>
+  )
 }
