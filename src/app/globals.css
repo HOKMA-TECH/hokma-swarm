@@ -153,3 +153,9 @@ body {
     @apply font-sans;
   }
 }
+
+@media print {
+  nav, aside, button { display: none !important; }
+  body { background: white !important; color: black !important; }
+  .chart-card, .kpi-card, table { border: 1px solid #ccc !important; }
+}
