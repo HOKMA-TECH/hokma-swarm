@@ -3,6 +3,7 @@ import { RelatorioKpis } from '@/components/relatorios/RelatorioKpis'
 import { LeadsLineChart } from '@/components/relatorios/LeadsLineChart'
 import { ConversionFunnel } from '@/components/relatorios/ConversionFunnel'
 import { OrigemDonut } from '@/components/relatorios/OrigemDonut'
+import { PrintButton } from '@/components/relatorios/PrintButton'
 import { format, subDays, startOfMonth } from 'date-fns'
 
 export default async function RelatoriosPage() {
@@ -66,15 +67,7 @@ export default async function RelatoriosPage() {
         display: 'flex', alignItems: 'center', padding: '0 24px', gap: 16, flexShrink: 0,
       }}>
         <h1 style={{ fontSize: 16, fontWeight: 600, flex: 1 }}>Relatórios</h1>
-        <button
-          onClick={() => typeof window !== 'undefined' && window.print()}
-          style={{
-            background: '#161616', border: '1px solid #222', borderRadius: 8,
-            padding: '7px 14px', fontSize: 13, color: '#999', cursor: 'pointer',
-          }}
-        >
-          ↓ Exportar PDF
-        </button>
+        <PrintButton />
       </div>
 
       <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>

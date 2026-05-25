@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -15,12 +15,12 @@ const NAV_ITEMS = [
 ]
 
 function NavIcon({ type }: { type: string }) {
-  const props = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2 } as const
-  if (type === 'grid') return <svg {...props}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-  if (type === 'bar') return <svg {...props}><rect x="2" y="7" width="5" height="10"/><rect x="10" y="4" width="5" height="13"/><rect x="18" y="9" width="5" height="8"/></svg>
-  if (type === 'cal') return <svg {...props}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-  if (type === 'chart') return <svg {...props}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-  if (type === 'sun') return <svg {...props}><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+  const props = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  if (type === 'grid')  return <svg {...props}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+  if (type === 'bar')   return <svg {...props}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+  if (type === 'cal')   return <svg {...props}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+  if (type === 'chart') return <svg {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+  if (type === 'sun')   return <svg {...props}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
   if (type === 'globe') return <svg {...props}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
   return null
 }
@@ -37,11 +37,17 @@ export function Sidebar() {
 
   return (
     <aside style={{
-      width: 220, background: '#111', borderRight: '1px solid #222',
-      display: 'flex', flexDirection: 'column', padding: '20px 0',
+      width: 220, background: '#0d0d0d',
+      borderRight: '1px solid #1a1a1a',
+      display: 'flex', flexDirection: 'column',
       flexShrink: 0, height: '100vh', position: 'sticky', top: 0,
     }}>
-      <div style={{ padding: '0 20px 24px', borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* Logo */}
+      <div style={{
+        padding: '22px 20px 20px',
+        borderBottom: '1px solid #1a1a1a',
+        display: 'flex', alignItems: 'center', gap: 10,
+      }}>
         <svg width="36" height="36" viewBox="0 0 72 72" fill="none">
           <polygon points="36,5 64,21 64,53 36,69 8,53 8,21" fill="none" stroke="#10b981" strokeWidth="2.5"/>
           <circle cx="36" cy="37" r="6.5" fill="#10b981"/>
@@ -59,42 +65,61 @@ export function Sidebar() {
           <line x1="36" y1="37" x2="36" y2="55" stroke="#6ee7b7" strokeWidth="1.1" opacity="0.55"/>
         </svg>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#f0f0f0', letterSpacing: '0.08em' }}>HOKMA</div>
-          <div style={{ fontSize: 10, color: '#10b981', letterSpacing: '0.15em', fontWeight: 300 }}>SWARM CRM</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#f0f0f0', letterSpacing: '0.1em' }}>HOKMA</div>
+          <div style={{ fontSize: 9, color: '#10b981', letterSpacing: '0.2em', fontWeight: 400, marginTop: 1 }}>SWARM CRM</div>
         </div>
       </div>
 
-      <nav style={{ flex: 1, padding: '16px 0' }}>
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: '12px 0' }}>
         {NAV_ITEMS.map(item => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link
               key={item.href}
               href={item.href}
+              className={`nav-link${isActive ? ' active' : ''}`}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 20px', fontSize: 13, textDecoration: 'none',
-                color: isActive ? '#10b981' : '#999',
+                padding: '10px 20px', fontSize: 13, textDecoration: 'none',
+                color: isActive ? '#10b981' : '#666',
                 background: isActive ? '#10b98122' : 'transparent',
-                borderRight: isActive ? '2px solid #10b981' : '2px solid transparent',
-                transition: 'all 0.15s',
+                borderRight: `2px solid ${isActive ? '#10b981' : 'transparent'}`,
+                position: 'relative',
               }}
             >
-              <span style={{ opacity: isActive ? 1 : 0.7 }}>
+              <span style={{
+                transition: 'color 0.15s',
+                color: isActive ? '#10b981' : 'inherit',
+              }}>
                 <NavIcon type={item.icon} />
               </span>
-              {item.label}
+              <span style={{ fontWeight: isActive ? 600 : 400 }}>{item.label}</span>
+              {isActive && (
+                <span style={{
+                  position: 'absolute', right: 14,
+                  width: 5, height: 5, borderRadius: '50%',
+                  background: '#10b981',
+                  boxShadow: '0 0 6px #10b981',
+                }} />
+              )}
             </Link>
           )
         })}
       </nav>
 
-      <div style={{ padding: '16px 20px', borderTop: '1px solid #222' }}>
+      {/* Footer */}
+      <div style={{ padding: '14px 20px', borderTop: '1px solid #1a1a1a' }}>
         <button
           onClick={handleLogout}
-          style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', padding: 0 }}
+          className="btn-ghost"
+          style={{
+            background: 'none', border: '1px solid transparent', borderRadius: 6,
+            color: '#444', fontSize: 12, cursor: 'pointer', padding: '5px 8px',
+            width: '100%', textAlign: 'left' as const,
+          }}
         >
-          Sair
+          ← Sair
         </button>
       </div>
     </aside>
