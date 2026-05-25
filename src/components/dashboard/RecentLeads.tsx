@@ -59,16 +59,19 @@ export function RecentLeads({ leads }: { leads: Lead[] }) {
       className="card-hover anim-fade-up"
       style={{
         background: '#111', border: '1px solid #222',
-        borderRadius: 12, padding: 20,
+        borderRadius: 12, padding: '16px 20px',
         animationDelay: '200ms',
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16, color: '#f0f0f0' }}>
-        Leads recentes
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f0f0' }}>Leads recentes</div>
+        <Link href="/pipeline" style={{ fontSize: 11, color: '#10b981', textDecoration: 'none' }}>
+          Ver todos →
+        </Link>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {leads.length === 0 && (
-          <p style={{ color: '#555', fontSize: 12 }}>Nenhum lead ainda.</p>
+          <p style={{ color: '#555', fontSize: 12, padding: '8px 0' }}>Nenhum lead ainda.</p>
         )}
         {leads.map(lead => <LeadRow key={lead.id} lead={lead} />)}
       </div>

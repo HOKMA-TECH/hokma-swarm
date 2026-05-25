@@ -1,17 +1,18 @@
 'use client'
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { STAGE_CONFIG, type Stage } from '@/types/database'
 
-interface StageDonutProps {
-  data: { stage: Stage; count: number }[]
+const COLORS = ['#10b981', '#42a5f5', '#ab47bc', '#ffab40', '#ef5350', '#6ee7b7', '#80cbc4']
+
+interface RegiaoDonutProps {
+  data: { tipo: string; count: number }[]
 }
 
-export function StageDonut({ data }: StageDonutProps) {
-  const chartData = data.map(d => ({
-    name: STAGE_CONFIG[d.stage]?.label ?? d.stage,
+export function RegiaoDonut({ data }: RegiaoDonutProps) {
+  const chartData = data.map((d, i) => ({
+    name: d.tipo,
     value: d.count,
-    color: STAGE_CONFIG[d.stage]?.color ?? '#555',
+    color: COLORS[i % COLORS.length],
   }))
 
   return (
@@ -19,11 +20,13 @@ export function StageDonut({ data }: StageDonutProps) {
       className="card-hover anim-fade-up"
       style={{
         background: '#111', border: '1px solid #222', borderRadius: 12, padding: 20,
-        animationDelay: '120ms',
+        animationDelay: '160ms',
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, color: '#f0f0f0' }}>Pipeline por stage</div>
-      <div style={{ fontSize: 11, color: '#555', marginBottom: 8 }}>Distribuição atual</div>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, color: '#f0f0f0' }}>
+        Região de interesse
+      </div>
+      <div style={{ fontSize: 11, color: '#555', marginBottom: 8 }}>Por tipo de imóvel</div>
       {chartData.length === 0 ? (
         <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ fontSize: 12, color: '#333' }}>Sem dados</span>
@@ -31,7 +34,13 @@ export function StageDonut({ data }: StageDonutProps) {
       ) : (
         <ResponsiveContainer width="100%" height={160}>
           <PieChart>
-            <Pie data={chartData} cx="50%" cy="50%" innerRadius={45} outerRadius={65} dataKey="value" paddingAngle={2}>
+            <Pie
+              data={chartData}
+              cx="50%" cy="50%"
+              innerRadius={45} outerRadius={65}
+              dataKey="value"
+              paddingAngle={2}
+            >
               {chartData.map((entry, i) => (
                 <Cell key={i} fill={entry.color} />
               ))}
@@ -43,7 +52,11 @@ export function StageDonut({ data }: StageDonutProps) {
                 boxShadow: '0 8px 24px #00000066',
               }}
             />
-            <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 10, color: '#999' }} />
+            <Legend
+              iconType="circle"
+              iconSize={7}
+              wrapperStyle={{ fontSize: 10, color: '#999' }}
+            />
           </PieChart>
         </ResponsiveContainer>
       )}
