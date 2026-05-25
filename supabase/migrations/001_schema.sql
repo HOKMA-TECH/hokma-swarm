@@ -22,7 +22,7 @@ CREATE TABLE leads (
 
 CREATE TABLE documents (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  lead_id       UUID REFERENCES leads(id) ON DELETE CASCADE,
+  lead_id       UUID NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
   name          TEXT NOT NULL,
   type          TEXT,
   storage_path  TEXT NOT NULL,
@@ -32,7 +32,7 @@ CREATE TABLE documents (
 
 CREATE TABLE conversations (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  lead_id    UUID REFERENCES leads(id) ON DELETE CASCADE,
+  lead_id    UUID NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
   role       TEXT NOT NULL CHECK (role IN ('lead','agent')),
   content    TEXT NOT NULL,
   type       TEXT DEFAULT 'text' CHECK (type IN ('text','audio')),
@@ -41,7 +41,7 @@ CREATE TABLE conversations (
 
 CREATE TABLE appointments (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  lead_id    UUID REFERENCES leads(id) ON DELETE CASCADE,
+  lead_id    UUID NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
   type       TEXT NOT NULL CHECK (type IN ('visita','call','reuniao')),
   title      TEXT NOT NULL,
   start_at   TIMESTAMPTZ NOT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE appointments (
 
 CREATE TABLE credit_analyses (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  lead_id        UUID REFERENCES leads(id) ON DELETE CASCADE,
+  lead_id        UUID NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
   status         TEXT NOT NULL DEFAULT 'draft'
                  CHECK (status IN ('draft','enviado','aprovado','reprovado','condicionado')),
   sent_at        TIMESTAMPTZ,
@@ -67,7 +67,7 @@ CREATE TABLE credit_analyses (
 
 CREATE TABLE timeline_events (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  lead_id    UUID REFERENCES leads(id) ON DELETE CASCADE,
+  lead_id    UUID NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
   type       TEXT NOT NULL,
   payload    JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -137,6 +137,16 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER appointments_created
   AFTER INSERT ON appointments
   FOR EACH ROW EXECUTE FUNCTION log_appointment_created();
+
+-- Indexes for common query patterns
+CREATE INDEX idx_documents_lead_id      ON documents(lead_id);
+CREATE INDEX idx_conversations_lead_id  ON conversations(lead_id);
+CREATE INDEX idx_appointments_lead_id   ON appointments(lead_id);
+CREATE INDEX idx_appointments_start_at  ON appointments(start_at);
+CREATE INDEX idx_credit_analyses_lead_id ON credit_analyses(lead_id);
+CREATE INDEX idx_timeline_events_lead_id ON timeline_events(lead_id);
+CREATE INDEX idx_leads_created_at       ON leads(created_at DESC);
+CREATE INDEX idx_leads_stage            ON leads(stage);
 
 -- Seed default portal links
 INSERT INTO portal_links (name, url, icon_label) VALUES
