@@ -31,9 +31,15 @@ export function LeadCard({ lead, index, onClick }: LeadCardProps) {
           <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f0f0', marginBottom: 4 }}>
             {lead.nome}
           </div>
-          <div style={{ fontSize: 11, color: '#999', marginBottom: 8 }}>
+          <a
+            href={`https://wa.me/55${lead.telefone.replace(/\D/g, '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            style={{ fontSize: 11, color: '#10b981', marginBottom: 8, display: 'block', textDecoration: 'none' }}
+          >
             {formatPhone(lead.telefone)}
-          </div>
+          </a>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{
               fontSize: 10, padding: '2px 7px', borderRadius: 20,
