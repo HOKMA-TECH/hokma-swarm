@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
-const COLORS = ['#ab47bc', '#42a5f5', '#ffab40', '#00c853', '#ef5350']
+const COLORS = ['#ab47bc', '#42a5f5', '#ffab40', '#10b981', '#ef5350']
 
 interface Props {
   data: { source: string; count: number }[]

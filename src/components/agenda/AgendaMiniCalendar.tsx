@@ -1,11 +1,11 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isSameMonth, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Appointment } from '@/types/database'
 
-const TYPE_COLORS: Record<string, string> = { visita: '#00c853', call: '#42a5f5', reuniao: '#ab47bc' }
+const TYPE_COLORS: Record<string, string> = { visita: '#10b981', call: '#42a5f5', reuniao: '#ab47bc' }
 
 interface Props {
   appointments: Appointment[]
@@ -59,7 +59,7 @@ export function AgendaMiniCalendar({ appointments, selectedDate, onDateSelect, a
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   padding: '3px 0', borderRadius: 6, cursor: 'pointer',
-                  background: isSelected ? '#00c853' : isToday ? '#00c85322' : 'transparent',
+                  background: isSelected ? '#10b981' : isToday ? '#10b98122' : 'transparent',
                 }}
               >
                 <span style={{ fontSize: 11, color: isSelected ? '#000' : isSameMonth(day, viewMonth) ? '#f0f0f0' : '#333', fontWeight: isToday ? 700 : 400 }}>
@@ -82,7 +82,7 @@ export function AgendaMiniCalendar({ appointments, selectedDate, onDateSelect, a
         <div style={{ fontSize: 11, color: '#555', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filtrar por tipo</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[
-            { key: 'visita', label: 'Visita', color: '#00c853' },
+            { key: 'visita', label: 'Visita', color: '#10b981' },
             { key: 'call', label: 'Call', color: '#42a5f5' },
             { key: 'reuniao', label: 'Reunião', color: '#ab47bc' },
           ].map(f => {

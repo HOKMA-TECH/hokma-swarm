@@ -1,8 +1,8 @@
-import { type Appointment } from '@/types/database'
+﻿import { type Appointment } from '@/types/database'
 import { formatDate } from '@/lib/utils'
 
 const TYPE_LABELS: Record<string, string> = { visita: '🏠 Visita', call: '📞 Call', reuniao: '🤝 Reunião' }
-const STATUS_COLORS: Record<string, string> = { pendente: '#ffab40', realizado: '#00c853', cancelado: '#ef5350' }
+const STATUS_COLORS: Record<string, string> = { pendente: '#ffab40', realizado: '#10b981', cancelado: '#ef5350' }
 
 export function ClienteAppointments({ appointments }: { appointments: Appointment[] }) {
   return (

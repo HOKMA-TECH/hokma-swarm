@@ -1,7 +1,7 @@
-import type { Appointment } from '@/types/database'
+﻿import type { Appointment } from '@/types/database'
 import { formatDate } from '@/lib/utils'
 
-const TYPE_COLORS: Record<string, string> = { visita: '#00c853', call: '#42a5f5', reuniao: '#ab47bc' }
+const TYPE_COLORS: Record<string, string> = { visita: '#10b981', call: '#42a5f5', reuniao: '#ab47bc' }
 const TYPE_LABELS: Record<string, string> = { visita: '🏠 Visita', call: '📞 Call', reuniao: '🤝 Reunião' }
 
 interface Props {

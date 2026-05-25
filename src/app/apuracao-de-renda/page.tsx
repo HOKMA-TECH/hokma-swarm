@@ -1,4 +1,4 @@
-export default function ApuracaoRendaPage() {
+﻿export default function ApuracaoRendaPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <div style={{
@@ -13,8 +13,8 @@ export default function ApuracaoRendaPage() {
         flexDirection: 'column', gap: 16,
       }}>
         <div style={{
-          width: 64, height: 64, borderRadius: 16, background: '#00c85311',
-          border: '1px solid #00c85333', display: 'flex', alignItems: 'center',
+          width: 64, height: 64, borderRadius: 16, background: '#10b98111',
+          border: '1px solid #10b98133', display: 'flex', alignItems: 'center',
           justifyContent: 'center', fontSize: 28,
         }}>
           ◎

@@ -1,4 +1,4 @@
-@import "tw-animate-css";
+﻿@import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @tailwind base;
@@ -14,9 +14,9 @@
   --surface3: #1c1c1c;
   --border: #222222;
   --border2: #2a2a2a;
-  --green: #00c853;
-  --green2: #00e676;
-  --green-dim: #00c85322;
+  --green: #10b981;
+  --green2: #6ee7b7;
+  --green-dim: #10b98122;
   --text: #f0f0f0;
   --text2: #999999;
   --text3: #555555;

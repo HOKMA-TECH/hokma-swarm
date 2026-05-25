@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -35,8 +35,8 @@ export function ClienteConversation({ leadId, initial }: { leadId: string; initi
           >
             <div style={{
               maxWidth: '80%', padding: '8px 12px', borderRadius: 12,
-              background: msg.role === 'agent' ? '#00c85322' : '#1c1c1c',
-              border: `1px solid ${msg.role === 'agent' ? '#00c85344' : '#222'}`,
+              background: msg.role === 'agent' ? '#10b98122' : '#1c1c1c',
+              border: `1px solid ${msg.role === 'agent' ? '#10b98144' : '#222'}`,
             }}>
               {msg.type === 'audio' && (
                 <div style={{ fontSize: 10, color: '#555', marginBottom: 4 }}>🎵 Áudio</div>

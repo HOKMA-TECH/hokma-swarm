@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
@@ -17,11 +17,11 @@ export function LeadsBarChart({ data }: LeadsBarChartProps) {
           <YAxis tick={{ fontSize: 10, fill: '#555' }} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={{ background: '#161616', border: '1px solid #222', borderRadius: 8, fontSize: 12 }}
-            cursor={{ fill: '#00c85311' }}
+            cursor={{ fill: '#10b98111' }}
           />
           <Bar dataKey="count" name="Leads" radius={[4, 4, 0, 0]}>
             {data.map((_, i) => (
-              <Cell key={i} fill="#00c853" fillOpacity={0.7} />
+              <Cell key={i} fill="#10b981" fillOpacity={0.7} />
             ))}
           </Bar>
         </BarChart>

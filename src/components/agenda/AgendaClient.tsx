@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { AgendaMiniCalendar } from './AgendaMiniCalendar'
@@ -29,7 +29,7 @@ export function AgendaClient({ initialAppointments, leads }: Props) {
         <button
           onClick={() => setShowDialog(true)}
           style={{
-            background: '#00c853', border: 'none', borderRadius: 8, padding: '7px 14px',
+            background: '#10b981', border: 'none', borderRadius: 8, padding: '7px 14px',
             fontSize: 13, fontWeight: 700, color: '#000', cursor: 'pointer',
           }}
         >

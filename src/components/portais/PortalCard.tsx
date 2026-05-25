@@ -1,4 +1,4 @@
-interface Props {
+﻿interface Props {
   name: string
   url: string
   iconLabel: string
@@ -20,9 +20,9 @@ export function PortalCard({ name, url, iconLabel, iconBg, iconColor, desc }: Pr
         width: 180,
       }}
       onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = '#00c853';
+        (e.currentTarget as HTMLElement).style.borderColor = '#10b981';
         (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-        (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 24px #00c85318'
+        (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 24px #10b98118'
       }}
       onMouseLeave={e => {
         (e.currentTarget as HTMLElement).style.borderColor = '#222';

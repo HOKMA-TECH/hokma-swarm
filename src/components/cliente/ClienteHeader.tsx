@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -44,7 +44,7 @@ export function ClienteHeader({ lead, creditAnalysis }: Props) {
           {isApproved && (
             <span style={{
               fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700,
-              background: '#00c85322', color: '#00c853', border: '1px solid #00c85344',
+              background: '#10b98122', color: '#10b981', border: '1px solid #10b98144',
             }}>
               ✓ Crédito {creditAnalysis?.status === 'aprovado' ? 'Aprovado' : 'Condicionado'}
             </span>

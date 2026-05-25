@@ -1,4 +1,4 @@
-import { type Lead } from '@/types/database'
+﻿import { type Lead } from '@/types/database'
 import { formatPhone, timeAgo } from '@/lib/utils'
 import { Draggable } from '@hello-pangea/dnd'
 
@@ -37,8 +37,8 @@ export function LeadCard({ lead, index, onClick }: LeadCardProps) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{
               fontSize: 10, padding: '2px 7px', borderRadius: 20,
-              background: lead.doc_count > 0 ? '#00c85322' : '#ffab4022',
-              color: lead.doc_count > 0 ? '#00c853' : '#ffab40',
+              background: lead.doc_count > 0 ? '#10b98122' : '#ffab4022',
+              color: lead.doc_count > 0 ? '#10b981' : '#ffab40',
             }}>
               {lead.doc_count > 0 ? `${lead.doc_count} docs` : 'Sem docs'}
             </span>

@@ -1,4 +1,4 @@
-interface Stage { label: string; count: number; pct: number }
+﻿interface Stage { label: string; count: number; pct: number }
 
 export function ConversionFunnel({ stages }: { stages: Stage[] }) {
   return (
@@ -14,7 +14,7 @@ export function ConversionFunnel({ stages }: { stages: Stage[] }) {
                 width: `${s.pct}%`, height: '100%',
                 background: `rgba(0,200,83,${0.1 + (1 - i * 0.15)})`,
                 borderRadius: 4, display: 'flex', alignItems: 'center', paddingLeft: 8,
-                fontSize: 11, fontWeight: 600, color: '#00c853', minWidth: 30,
+                fontSize: 11, fontWeight: 600, color: '#10b981', minWidth: 30,
               }}>
                 {s.count}
               </div>

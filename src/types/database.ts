@@ -1,4 +1,4 @@
-export type Stage =
+﻿export type Stage =
   | 'pendente'
   | 'em_analise'
   | 'aprovado'
@@ -95,14 +95,14 @@ export interface PortalLink {
 export const STAGE_CONFIG: Record<Stage, { label: string; color: string }> = {
   pendente:     { label: 'Pendente',     color: '#666666' },
   em_analise:   { label: 'Em Análise',  color: '#42a5f5' },
-  aprovado:     { label: 'Aprovado',     color: '#00c853' },
+  aprovado:     { label: 'Aprovado',     color: '#10b981' },
   reprovado:    { label: 'Reprovado',    color: '#ef5350' },
   condicionado: { label: 'Condicionado', color: '#ffab40' },
   desistencia:  { label: 'Desistência',  color: '#b71c1c' },
   contrato:     { label: 'Contrato',     color: '#1b5e20' },
   formularios:  { label: 'Formulários',  color: '#ab47bc' },
   repasse:      { label: 'Repasse',      color: '#e65100' },
-  concluido:    { label: 'Concluído',    color: '#00e676' },
+  concluido:    { label: 'Concluído',    color: '#6ee7b7' },
 }
 
 export const STAGES: Stage[] = [

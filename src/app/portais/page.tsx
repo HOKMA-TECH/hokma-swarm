@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -8,7 +8,7 @@ import type { PortalLink } from '@/types/database'
 const ICON_STYLES: Record<string, { bg: string; color: string }> = {
   ZAP: { bg: '#ffab4018', color: '#ffab40' },
   VR:  { bg: '#42a5f518', color: '#42a5f5' },
-  OLX: { bg: '#00c85318', color: '#00c853' },
+  OLX: { bg: '#10b98118', color: '#10b981' },
   CN:  { bg: '#ef535018', color: '#ef5350' },
   CX:  { bg: '#ab47bc18', color: '#ab47bc' },
   CR:  { bg: '#29b6f618', color: '#29b6f6' },
@@ -98,7 +98,7 @@ export default function PortaisPage() {
             <div><label style={{ fontSize: 11, color: '#555', display: 'block', marginBottom: 5 }}>Sigla do ícone (2–3 letras)</label><input style={input} value={newIcon} onChange={e => setNewIcon(e.target.value)} placeholder="IW" maxLength={3} /></div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setShowAdd(false)} style={{ flex: 1, background: '#161616', border: '1px solid #222', borderRadius: 8, padding: 10, color: '#999', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={handleAdd} disabled={!newName || !newUrl} style={{ flex: 1, background: newName && newUrl ? '#00c853' : '#222', border: 'none', borderRadius: 8, padding: 10, color: newName && newUrl ? '#000' : '#555', fontWeight: 700, fontSize: 13, cursor: newName && newUrl ? 'pointer' : 'not-allowed' }}>Salvar</button>
+              <button onClick={handleAdd} disabled={!newName || !newUrl} style={{ flex: 1, background: newName && newUrl ? '#10b981' : '#222', border: 'none', borderRadius: 8, padding: 10, color: newName && newUrl ? '#000' : '#555', fontWeight: 700, fontSize: 13, cursor: newName && newUrl ? 'pointer' : 'not-allowed' }}>Salvar</button>
             </div>
           </div>
         </div>

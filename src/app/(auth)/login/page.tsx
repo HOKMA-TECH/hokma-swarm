@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -35,14 +35,26 @@ export default function LoginPage() {
         background: '#111', border: '1px solid #222', borderRadius: 16,
         padding: '40px 36px', width: 360, display: 'flex', flexDirection: 'column', gap: 24
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <svg width="36" height="36" viewBox="0 0 100 100" fill="none">
-            <rect width="100" height="100" rx="16" fill="#00c853" fillOpacity="0.15"/>
-            <path d="M20 20 L50 50 L20 80 L35 80 L50 65 L65 80 L80 80 L50 50 L80 20 L65 20 L50 35 L35 20 Z" fill="#00c853"/>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, marginBottom: 8 }}>
+          <svg width="56" height="56" viewBox="0 0 72 72" fill="none">
+            <polygon points="36,5 64,21 64,53 36,69 8,53 8,21" fill="none" stroke="#10b981" strokeWidth="2.5"/>
+            <circle cx="36" cy="37" r="6.5" fill="#10b981"/>
+            <circle cx="22" cy="25" r="4.2" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.4"/>
+            <circle cx="50" cy="25" r="4.2" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.4"/>
+            <circle cx="22" cy="49" r="4.2" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.4"/>
+            <circle cx="50" cy="49" r="4.2" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.4"/>
+            <circle cx="36" cy="16" r="3" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.2"/>
+            <circle cx="36" cy="58" r="3" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.2"/>
+            <line x1="36" y1="37" x2="22" y2="25" stroke="#6ee7b7" strokeWidth="1.4" opacity="0.85"/>
+            <line x1="36" y1="37" x2="50" y2="25" stroke="#6ee7b7" strokeWidth="1.4" opacity="0.85"/>
+            <line x1="36" y1="37" x2="22" y2="49" stroke="#6ee7b7" strokeWidth="1.4" opacity="0.85"/>
+            <line x1="36" y1="37" x2="50" y2="49" stroke="#6ee7b7" strokeWidth="1.4" opacity="0.85"/>
+            <line x1="36" y1="37" x2="36" y2="19" stroke="#6ee7b7" strokeWidth="1.1" opacity="0.55"/>
+            <line x1="36" y1="37" x2="36" y2="55" stroke="#6ee7b7" strokeWidth="1.1" opacity="0.55"/>
           </svg>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#00c853', letterSpacing: '0.05em' }}>HOKMA SWARM</div>
-            <div style={{ fontSize: 10, color: '#555', letterSpacing: '0.1em' }}>IMOBILIÁRIA</div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#f0f0f0', letterSpacing: '0.1em' }}>HOKMA</div>
+            <div style={{ fontSize: 11, color: '#10b981', letterSpacing: '0.2em', fontWeight: 300, marginTop: 2 }}>SWARM CRM</div>
           </div>
         </div>
 
@@ -78,7 +90,7 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             style={{
-              background: '#00c853', border: 'none', borderRadius: 8, padding: '11px',
+              background: '#10b981', border: 'none', borderRadius: 8, padding: '11px',
               color: '#000', fontWeight: 700, fontSize: 14, cursor: 'pointer',
               opacity: loading ? 0.7 : 1
             }}

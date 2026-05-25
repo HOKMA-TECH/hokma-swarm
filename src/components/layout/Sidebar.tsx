@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -42,13 +42,25 @@ export function Sidebar() {
       flexShrink: 0, height: '100vh', position: 'sticky', top: 0,
     }}>
       <div style={{ padding: '0 20px 24px', borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <svg width="32" height="32" viewBox="0 0 100 100" fill="none">
-          <rect width="100" height="100" rx="16" fill="#00c853" fillOpacity="0.15"/>
-          <path d="M20 20 L50 50 L20 80 L35 80 L50 65 L65 80 L80 80 L50 50 L80 20 L65 20 L50 35 L35 20 Z" fill="#00c853"/>
+        <svg width="36" height="36" viewBox="0 0 72 72" fill="none">
+          <polygon points="36,5 64,21 64,53 36,69 8,53 8,21" fill="none" stroke="#10b981" strokeWidth="2.5"/>
+          <circle cx="36" cy="37" r="6.5" fill="#10b981"/>
+          <circle cx="22" cy="25" r="4.2" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.4"/>
+          <circle cx="50" cy="25" r="4.2" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.4"/>
+          <circle cx="22" cy="49" r="4.2" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.4"/>
+          <circle cx="50" cy="49" r="4.2" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.4"/>
+          <circle cx="36" cy="16" r="3" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.2"/>
+          <circle cx="36" cy="58" r="3" fill="#052e16" stroke="#6ee7b7" strokeWidth="1.2"/>
+          <line x1="36" y1="37" x2="22" y2="25" stroke="#6ee7b7" strokeWidth="1.4" opacity="0.85"/>
+          <line x1="36" y1="37" x2="50" y2="25" stroke="#6ee7b7" strokeWidth="1.4" opacity="0.85"/>
+          <line x1="36" y1="37" x2="22" y2="49" stroke="#6ee7b7" strokeWidth="1.4" opacity="0.85"/>
+          <line x1="36" y1="37" x2="50" y2="49" stroke="#6ee7b7" strokeWidth="1.4" opacity="0.85"/>
+          <line x1="36" y1="37" x2="36" y2="19" stroke="#6ee7b7" strokeWidth="1.1" opacity="0.55"/>
+          <line x1="36" y1="37" x2="36" y2="55" stroke="#6ee7b7" strokeWidth="1.1" opacity="0.55"/>
         </svg>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#00c853', letterSpacing: '0.05em' }}>HOKMA SWARM</div>
-          <div style={{ fontSize: 10, color: '#555', letterSpacing: '0.1em' }}>IMOBILIÁRIA</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#f0f0f0', letterSpacing: '0.08em' }}>HOKMA</div>
+          <div style={{ fontSize: 10, color: '#10b981', letterSpacing: '0.15em', fontWeight: 300 }}>SWARM CRM</div>
         </div>
       </div>
 
@@ -62,9 +74,9 @@ export function Sidebar() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '9px 20px', fontSize: 13, textDecoration: 'none',
-                color: isActive ? '#00c853' : '#999',
-                background: isActive ? '#00c85322' : 'transparent',
-                borderRight: isActive ? '2px solid #00c853' : '2px solid transparent',
+                color: isActive ? '#10b981' : '#999',
+                background: isActive ? '#10b98122' : 'transparent',
+                borderRight: isActive ? '2px solid #10b981' : '2px solid transparent',
                 transition: 'all 0.15s',
               }}
             >

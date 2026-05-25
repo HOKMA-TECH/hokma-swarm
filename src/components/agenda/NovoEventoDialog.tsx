@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -67,9 +67,9 @@ export function NovoEventoDialog({ leads, onClose, onCreated }: Props) {
             {(['visita', 'call', 'reuniao'] as const).map(t => (
               <button key={t} onClick={() => setType(t)} style={{
                 flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                background: type === t ? '#00c85322' : '#161616',
-                border: `1px solid ${type === t ? '#00c853' : '#222'}`,
-                color: type === t ? '#00c853' : '#999',
+                background: type === t ? '#10b98122' : '#161616',
+                border: `1px solid ${type === t ? '#10b981' : '#222'}`,
+                color: type === t ? '#10b981' : '#999',
               }}>
                 {t === 'visita' ? '🏠 Visita' : t === 'call' ? '📞 Call' : '🤝 Reunião'}
               </button>
@@ -120,7 +120,7 @@ export function NovoEventoDialog({ leads, onClose, onCreated }: Props) {
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving || !title || !leadId} style={{
-            flex: 1, background: title && leadId ? '#00c853' : '#222', border: 'none', borderRadius: 8,
+            flex: 1, background: title && leadId ? '#10b981' : '#222', border: 'none', borderRadius: 8,
             padding: 10, color: title && leadId ? '#000' : '#555', fontSize: 13, fontWeight: 700,
             cursor: title && leadId ? 'pointer' : 'not-allowed',
           }}>

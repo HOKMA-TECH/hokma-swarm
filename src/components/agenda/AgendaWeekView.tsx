@@ -1,6 +1,6 @@
-'use client'
+﻿'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { format, startOfWeek, addDays, isSameDay, getHours, getMinutes } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -8,7 +8,7 @@ import type { Appointment } from '@/types/database'
 import { AgendaEventDetail } from './AgendaEventDetail'
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8)
-const TYPE_COLORS: Record<string, string> = { visita: '#00c853', call: '#42a5f5', reuniao: '#ab47bc' }
+const TYPE_COLORS: Record<string, string> = { visita: '#10b981', call: '#42a5f5', reuniao: '#ab47bc' }
 
 type AppointmentWithLead = Appointment & { lead?: { nome: string; telefone: string } }
 
@@ -70,9 +70,9 @@ export function AgendaWeekView({ initialAppointments, selectedDate, activeFilter
               </div>
               <div style={{
                 fontSize: 18, fontWeight: 700, marginTop: 2,
-                color: isToday ? '#00c853' : '#f0f0f0',
+                color: isToday ? '#10b981' : '#f0f0f0',
                 width: 32, height: 32, borderRadius: '50%', margin: '2px auto 0',
-                background: isToday ? '#00c85322' : 'transparent',
+                background: isToday ? '#10b98122' : 'transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 {format(day, 'd')}
@@ -82,8 +82,8 @@ export function AgendaWeekView({ initialAppointments, selectedDate, activeFilter
         })}
 
         {HOURS.map(hour => (
-          <>
-            <div key={`h${hour}`} style={{
+          <React.Fragment key={hour}>
+            <div style={{
               borderBottom: '1px solid #1c1c1c', padding: '0 8px',
               display: 'flex', alignItems: 'flex-start', paddingTop: 6, height: 64,
             }}>
@@ -120,7 +120,7 @@ export function AgendaWeekView({ initialAppointments, selectedDate, activeFilter
                 </div>
               )
             })}
-          </>
+          </React.Fragment>
         ))}
       </div>
 

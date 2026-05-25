@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -54,8 +54,8 @@ export function ClienteDocuments({ leadId, initialDocs }: Props) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 600 }}>Documentos</div>
         <label style={{
-          background: '#00c85322', border: '1px solid #00c853', borderRadius: 8,
-          padding: '5px 12px', fontSize: 11, color: '#00c853', cursor: 'pointer', fontWeight: 600,
+          background: '#10b98122', border: '1px solid #10b981', borderRadius: 8,
+          padding: '5px 12px', fontSize: 11, color: '#10b981', cursor: 'pointer', fontWeight: 600,
         }}>
           {uploading ? 'Enviando...' : '+ Upload'}
           <input type="file" hidden onChange={handleUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />

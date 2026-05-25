@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -17,7 +17,7 @@ const STATUS_STEP: Record<string, number> = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  aprovado: '#00c853', reprovado: '#ef5350', condicionado: '#ffab40',
+  aprovado: '#10b981', reprovado: '#ef5350', condicionado: '#ffab40',
 }
 
 interface Props {
@@ -75,15 +75,15 @@ export function CreditAnalysisDropdown({ leadId, creditAnalysis }: Props) {
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{
                     width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                    background: done ? '#00c853' : active ? '#00c85344' : '#1c1c1c',
-                    border: `1px solid ${done ? '#00c853' : active ? '#00c853' : '#222'}`,
+                    background: done ? '#10b981' : active ? '#10b98144' : '#1c1c1c',
+                    border: `1px solid ${done ? '#10b981' : active ? '#10b981' : '#222'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 11, color: done ? '#000' : active ? '#00c853' : '#555',
+                    fontSize: 11, color: done ? '#000' : active ? '#10b981' : '#555',
                     fontWeight: 700,
                   }}>
                     {done ? '✓' : i + 1}
                   </div>
-                  <span style={{ fontSize: 12, color: done ? '#00c853' : active ? '#f0f0f0' : '#555' }}>
+                  <span style={{ fontSize: 12, color: done ? '#10b981' : active ? '#f0f0f0' : '#555' }}>
                     {step}
                   </span>
                 </div>
@@ -123,7 +123,7 @@ export function CreditAnalysisDropdown({ leadId, creditAnalysis }: Props) {
               onClick={handleSend}
               disabled={sending}
               style={{
-                width: '100%', background: '#00c853', border: 'none', borderRadius: 8,
+                width: '100%', background: '#10b981', border: 'none', borderRadius: 8,
                 padding: '10px', color: '#000', fontWeight: 700, fontSize: 13,
                 cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.7 : 1,
               }}
