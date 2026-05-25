@@ -14,6 +14,7 @@ interface Props {
 
 export function ClienteHeader({ lead, creditAnalysis }: Props) {
   const [currentStage, setCurrentStage] = useState<Stage>(lead.stage)
+  const [deleting, setDeleting] = useState(false)
   const router = useRouter()
   const supabase = createClient()
   const stage = STAGE_CONFIG[currentStage]
@@ -22,6 +23,31 @@ export function ClienteHeader({ lead, creditAnalysis }: Props) {
     setCurrentStage(newStage)
     await supabase.from('leads').update({ stage: newStage, updated_at: new Date().toISOString() }).eq('id', lead.id)
     router.refresh()
+  }
+
+  async function handleDeleteClient() {
+    const confirmed = window.confirm(`Excluir a pasta de ${lead.nome}? Essa ação remove o cliente e seus registros vinculados.`)
+    if (!confirmed) return
+
+    setDeleting(true)
+
+    const { data: docs } = await supabase
+      .from('documents')
+      .select('storage_path')
+      .eq('lead_id', lead.id)
+
+    const paths = (docs ?? [])
+      .map(doc => doc.storage_path)
+      .filter(Boolean)
+
+    if (paths.length > 0) {
+      await supabase.storage.from('documentos').remove(paths)
+    }
+
+    const { error } = await supabase.from('leads').delete().eq('id', lead.id)
+
+    setDeleting(false)
+    if (!error) router.push('/pipeline')
   }
 
   const isApproved = creditAnalysis?.status === 'aprovado' || creditAnalysis?.status === 'condicionado'
@@ -72,7 +98,25 @@ export function ClienteHeader({ lead, creditAnalysis }: Props) {
         ))}
       </select>
 
-      <CreditAnalysisDropdown leadId={lead.id} creditAnalysis={creditAnalysis} />
+      <CreditAnalysisDropdown leadId={lead.id} lead={lead} creditAnalysis={creditAnalysis} />
+
+      <button
+        type="button"
+        onClick={handleDeleteClient}
+        disabled={deleting}
+        style={{
+          background: '#ef535011',
+          border: '1px solid #ef535044',
+          borderRadius: 8,
+          padding: '7px 12px',
+          fontSize: 12,
+          color: '#ef5350',
+          cursor: deleting ? 'not-allowed' : 'pointer',
+          opacity: deleting ? 0.6 : 1,
+        }}
+      >
+        {deleting ? 'Excluindo...' : 'Excluir cliente'}
+      </button>
     </div>
   )
 }

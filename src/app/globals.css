@@ -61,9 +61,10 @@ body {
   font-family: 'Inter', 'Segoe UI', sans-serif;
 }
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar { width: 0; height: 0; display: none; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: transparent; }
+* { scrollbar-width: none; -ms-overflow-style: none; }
 
 @theme inline {
   --font-heading: var(--font-sans);

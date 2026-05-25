@@ -1,8 +1,8 @@
-﻿'use client'
+'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { CreditAnalysis } from '@/types/database'
+import type { CreditAnalysis, Document, Lead } from '@/types/database'
 import { formatDate } from '@/lib/utils'
 
 const STEPS = [
@@ -13,42 +13,349 @@ const STEPS = [
 ]
 
 const STATUS_STEP: Record<string, number> = {
-  draft: 1, enviado: 2, aprovado: 3, reprovado: 3, condicionado: 3,
+  draft: 1, enviado: 2, aprovado: 4, reprovado: 4, condicionado: 4,
 }
 
 const STATUS_COLORS: Record<string, string> = {
   aprovado: '#10b981', reprovado: '#ef5350', condicionado: '#ffab40',
 }
 
-interface Props {
-  leadId: string
-  creditAnalysis: CreditAnalysis | null
+const overlayStyle: React.CSSProperties = {
+  position: 'fixed', inset: 0, background: '#00000088', backdropFilter: 'blur(2px)',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000,
 }
 
-export function CreditAnalysisDropdown({ leadId, creditAnalysis }: Props) {
-  const [open, setOpen] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [analysis, setAnalysis] = useState(creditAnalysis)
-  const supabase = createClient()
+const modalStyle: React.CSSProperties = {
+  background: '#111', border: '1px solid #222', borderRadius: 16,
+  boxShadow: '0 32px 80px #00000099',
+  animation: 'fadeUp 0.25s cubic-bezier(0.16,1,0.3,1) both',
+}
 
-  const currentStep = analysis ? STATUS_STEP[analysis.status] ?? 1 : 0
+const inp: React.CSSProperties = {
+  width: '100%', background: '#161616', border: '1px solid #2a2a2a',
+  borderRadius: 8, padding: '9px 12px', color: '#f0f0f0', fontSize: 13, outline: 'none',
+}
+
+const lbl: React.CSSProperties = { fontSize: 11, color: '#555', marginBottom: 4, display: 'block' }
+
+/* ── Compose Email Modal (Step 2) ─────────────────────────── */
+function ComposeEmailModal({
+  lead,
+  onClose,
+  onSent,
+}: {
+  lead: Lead
+  onClose: () => void
+  onSent: (a: CreditAnalysis | null) => void
+}) {
+  const supabase = createClient()
+  const [docs, setDocs] = useState<Document[]>([])
+  const [to, setTo] = useState('')
+  const [cc, setCc] = useState('')
+  const [bcc, setBcc] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+
+  const defaultSubject = `HOKMA SWARM | SOLICITO ANÁLISE | ${lead.tipo_imovel ?? 'Não informado'} | ${lead.nome}${lead.cpf ? ` (${lead.cpf})` : ''}`
+
+  const defaultBody = `Bom dia, solicito a análise de crédito do cliente em questão.
+
+PROPONENTE
+NOME: ${lead.nome}
+CPF: ${lead.cpf ?? 'Não informado'}
+E-MAIL: ${lead.email ?? 'Não informado'}
+TELEFONE: ${lead.telefone}
+RENDA: ${lead.renda != null ? `R$ ${lead.renda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado'}
+TIPO DE IMÓVEL: ${lead.tipo_imovel ?? 'Não informado'}
+CAMPANHA: ${lead.campaign_source ?? 'Não informado'}
+
+Documentos em anexo.`
+
+  const [body, setBody] = useState(defaultBody)
+
+  useEffect(() => {
+    supabase.from('documents').select('*').eq('lead_id', lead.id).order('uploaded_at')
+      .then(({ data }) => setDocs(data ?? []))
+  }, [lead.id])
 
   async function handleSend() {
+    if (!to.trim()) { setError('Informe o e-mail de destino.'); return }
     setSending(true)
+    setError('')
     const { data: { session } } = await supabase.auth.getSession()
-    await fetch('/api/send-credit-email', {
+    const res = await fetch('/api/send-credit-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-      body: JSON.stringify({ lead_id: leadId }),
+      body: JSON.stringify({ lead_id: lead.id, to_email: to.trim(), cc: cc.trim(), bcc: bcc.trim(), subject: defaultSubject, body }),
     })
-    const { data } = await supabase.from('credit_analyses').select('*').eq('lead_id', leadId)
-      .order('created_at', { ascending: false }).limit(1).maybeSingle()
-    setAnalysis(data)
     setSending(false)
+    if (!res.ok) { setError('Erro ao enviar. Tente novamente.'); return }
+    const { data } = await supabase.from('credit_analyses').select('*').eq('lead_id', lead.id)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+    onSent(data)
+    onClose()
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={overlayStyle} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ ...modalStyle, width: 620, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        {/* Header */}
+        <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>Novo Email</div>
+            <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>Enviar para análise de crédito</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={lbl}>Para *</label>
+            <input style={inp} value={to} onChange={e => setTo(e.target.value)} placeholder="analise@banco.com" autoFocus />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>Cc</label>
+              <input style={inp} value={cc} onChange={e => setCc(e.target.value)} placeholder="copia@empresa.com" />
+            </div>
+            <div>
+              <label style={lbl}>Cco (Bcc)</label>
+              <input style={inp} value={bcc} onChange={e => setBcc(e.target.value)} placeholder="secreto@empresa.com" />
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Assunto</label>
+            <div style={{ ...inp, color: '#888', fontSize: 12, wordBreak: 'break-word', lineHeight: 1.5 }}>
+              {defaultSubject}
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Corpo</label>
+            <textarea
+              rows={10}
+              style={{ ...inp, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
+              value={body}
+              onChange={e => setBody(e.target.value)}
+            />
+          </div>
+
+          {docs.length > 0 && (
+            <div>
+              <label style={lbl}>Anexos ({docs.length})</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {docs.map(doc => (
+                  <div key={doc.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: '#161616', border: '1px solid #2a2a2a', borderRadius: 8,
+                    padding: '5px 10px',
+                  }}>
+                    <span style={{ fontSize: 13 }}>📎</span>
+                    <span style={{ fontSize: 11, color: '#f0f0f0' }}>{doc.name}</span>
+                    {doc.type && <span style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>{doc.type.toUpperCase()}</span>}
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: '#444', marginTop: 8 }}>
+                Os arquivos são enviados como links de acesso seguro.
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div style={{ fontSize: 12, color: '#ef5350', padding: '8px 12px', background: '#ef535011', border: '1px solid #ef535033', borderRadius: 8 }}>
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 24px', borderTop: '1px solid #1c1c1c', display: 'flex', gap: 10, flexShrink: 0 }}>
+          <button onClick={onClose} style={{ flex: 1, background: '#161616', border: '1px solid #222', borderRadius: 8, padding: '10px', color: '#999', fontSize: 13, cursor: 'pointer' }}>
+            Cancelar
+          </button>
+          <button
+            onClick={handleSend}
+            disabled={sending || !to.trim()}
+            style={{
+              flex: 2, border: 'none', borderRadius: 8, padding: '10px',
+              background: to.trim() && !sending ? '#10b981' : '#222',
+              color: to.trim() && !sending ? '#000' : '#555',
+              fontSize: 13, fontWeight: 700,
+              cursor: to.trim() && !sending ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {sending ? 'Enviando...' : 'Enviar →'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Awaiting Response Modal (Step 3) ─────────────────────── */
+function AwaitingResponseModal({ analysis, onClose }: { analysis: CreditAnalysis | null; onClose: () => void }) {
+  const sent = analysis?.status === 'enviado' || analysis?.status === 'aprovado' || analysis?.status === 'reprovado' || analysis?.status === 'condicionado'
+
+  return (
+    <div style={overlayStyle} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ ...modalStyle, width: 480 }}>
+        <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>Aguardando Resposta</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: '24px' }}>
+          {sent ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: '50%',
+                  background: '#ffab4011', border: '1px solid #ffab4033',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                }}>
+                  ⏳
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, color: '#f0f0f0', fontWeight: 600 }}>Email enviado para análise</div>
+                  <div style={{ fontSize: 11, color: '#555', marginTop: 3 }}>
+                    Enviado em {analysis!.sent_at ? formatDate(analysis!.sent_at) : '—'}
+                  </div>
+                </div>
+              </div>
+              <div style={{ background: '#161616', border: '1px solid #222', borderRadius: 10, padding: '14px 16px' }}>
+                <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>Status</div>
+                <div style={{ fontSize: 13, color: '#ffab40', fontWeight: 600 }}>Aguardando resposta do banco</div>
+              </div>
+              <div style={{ fontSize: 11, color: '#444', textAlign: 'center', lineHeight: 1.6 }}>
+                Quando receber a resposta, ela aparecerá em "Resultado Recebido".
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: '#555', textAlign: 'center', padding: '20px 0', lineHeight: 1.6 }}>
+              Nenhum email foi enviado ainda.<br />
+              Clique em <strong style={{ color: '#f0f0f0' }}>"Enviar para análise"</strong> para iniciar.
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '14px 24px', borderTop: '1px solid #1c1c1c' }}>
+          <button onClick={onClose} style={{ width: '100%', background: '#161616', border: '1px solid #222', borderRadius: 8, padding: '10px', color: '#999', fontSize: 13, cursor: 'pointer' }}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Result Modal (Step 4) ────────────────────────────────── */
+function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; onClose: () => void }) {
+  const hasResult = analysis != null && ['aprovado', 'reprovado', 'condicionado'].includes(analysis.status)
+  const statusColor = hasResult ? (STATUS_COLORS[analysis!.status] ?? '#555') : '#555'
+  const statusLabel = hasResult ? (analysis!.status.charAt(0).toUpperCase() + analysis!.status.slice(1)) : ''
+
+  return (
+    <div style={overlayStyle} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ ...modalStyle, width: 520 }}>
+        <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>Resultado da Análise</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: '24px' }}>
+          {hasResult ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{
+                  fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 20,
+                  background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44`,
+                }}>
+                  {statusLabel}
+                </span>
+                {analysis!.responded_at && (
+                  <span style={{ fontSize: 11, color: '#555' }}>{formatDate(analysis!.responded_at)}</span>
+                )}
+              </div>
+
+              {analysis!.approved_value != null && (
+                <div style={{ background: '#10b98111', border: '1px solid #10b98133', borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>Valor aprovado</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#10b981' }}>
+                    R$ {analysis!.approved_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              )}
+
+              {analysis!.response_text ? (
+                <div style={{ background: '#161616', border: '1px solid #222', borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 11, color: '#555', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>✉</span>
+                    <span>Email recebido</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: '#f0f0f0', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                    {analysis!.response_text}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: '#555', fontStyle: 'italic' }}>
+                  Sem texto de resposta registrado.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: '#555', textAlign: 'center', padding: '20px 0', lineHeight: 1.6 }}>
+              Nenhum resultado disponível ainda.<br />
+              Aguardando resposta do banco.
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '14px 24px', borderTop: '1px solid #1c1c1c' }}>
+          <button onClick={onClose} style={{ width: '100%', background: '#161616', border: '1px solid #222', borderRadius: 8, padding: '10px', color: '#999', fontSize: 13, cursor: 'pointer' }}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Main Dropdown ────────────────────────────────────────── */
+interface Props {
+  leadId: string
+  lead: Lead
+  creditAnalysis: CreditAnalysis | null
+}
+
+export function CreditAnalysisDropdown({ leadId, lead, creditAnalysis }: Props) {
+  const [open, setOpen] = useState(false)
+  const [analysis, setAnalysis] = useState(creditAnalysis)
+  const [activeModal, setActiveModal] = useState<null | 'compose' | 'awaiting' | 'result'>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const currentStep = analysis ? (STATUS_STEP[analysis.status] ?? 1) : 0
+
+  useEffect(() => {
+    if (window.location.hash === '#analise') setOpen(true)
+  }, [])
+
+  useEffect(() => {
+    if (activeModal) return
+    function handleOut(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleOut)
+    return () => document.removeEventListener('mousedown', handleOut)
+  }, [activeModal])
+
+  function handleStepClick(idx: number) {
+    if (idx === 0) { setOpen(false); return }
+    if (idx === 1) setActiveModal('compose')
+    if (idx === 2) setActiveModal('awaiting')
+    if (idx === 3) setActiveModal('result')
+  }
+
+  const hasResult = analysis != null && ['aprovado', 'reprovado', 'condicionado'].includes(analysis.status)
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{
@@ -58,100 +365,83 @@ export function CreditAnalysisDropdown({ leadId, creditAnalysis }: Props) {
         }}
       >
         Análise de Crédito
-        <span style={{ fontSize: 10 }}>▾</span>
+        <span style={{ fontSize: 10, display: 'inline-block', transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
       </button>
 
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 100,
           background: '#111', border: '1px solid #222', borderRadius: 12,
-          padding: 20, width: 320, boxShadow: '0 8px 32px #00000066',
+          paddingTop: 8, paddingBottom: 8, width: 280,
+          boxShadow: '0 8px 32px #00000088',
         }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-            {STEPS.map((step, i) => {
-              const done = i < currentStep
-              const active = i === currentStep
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{
-                    width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                    background: done ? '#10b981' : active ? '#10b98144' : '#1c1c1c',
-                    border: `1px solid ${done ? '#10b981' : active ? '#10b981' : '#222'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 11, color: done ? '#000' : active ? '#10b981' : '#555',
-                    fontWeight: 700,
-                  }}>
-                    {done ? '✓' : i + 1}
-                  </div>
-                  <span style={{ fontSize: 12, color: done ? '#10b981' : active ? '#f0f0f0' : '#555' }}>
-                    {step}
-                  </span>
-                </div>
-              )
-            })}
+          <div style={{ fontSize: 10, color: '#444', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '4px 16px 8px' }}>
+            Etapas da Análise
           </div>
 
-          {analysis && ['aprovado', 'reprovado', 'condicionado'].includes(analysis.status) && (
-            <div style={{
-              background: `${STATUS_COLORS[analysis.status]}11`,
-              border: `1px solid ${STATUS_COLORS[analysis.status]}44`,
-              borderRadius: 10, padding: '12px 14px', marginBottom: 14,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{
-                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                  background: `${STATUS_COLORS[analysis.status]}22`,
-                  color: STATUS_COLORS[analysis.status],
+          {STEPS.map((label, i) => {
+            const done = i < currentStep
+            const active = i === currentStep
+            return (
+              <button
+                key={i}
+                onClick={() => handleStepClick(i)}
+                style={{
+                  width: '100%', background: 'transparent', border: 'none',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 16px', textAlign: 'left', transition: 'background 0.12s',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#10b98108' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+              >
+                <div style={{
+                  width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                  background: done ? '#10b981' : active ? '#10b98133' : '#1a1a1a',
+                  border: `1.5px solid ${done ? '#10b981' : active ? '#10b98188' : '#2a2a2a'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 700,
+                  color: done ? '#000' : active ? '#10b981' : '#444',
+                  transition: 'all 0.2s',
                 }}>
-                  {analysis.status.charAt(0).toUpperCase() + analysis.status.slice(1)}
+                  {i + 1}
+                </div>
+                <span style={{
+                  flex: 1, fontSize: 13,
+                  color: done ? '#10b981' : active ? '#f0f0f0' : '#555',
+                  fontWeight: done || active ? 600 : 400,
+                }}>
+                  {label}
                 </span>
-                <span style={{ fontSize: 10, color: '#555' }}>
-                  {analysis.responded_at ? formatDate(analysis.responded_at) : ''}
-                </span>
-              </div>
-              {analysis.response_text && (
-                <p style={{ fontSize: 11, color: '#999', lineHeight: 1.5 }}>
-                  {analysis.response_text.slice(0, 200)}
-                  {analysis.response_text.length > 200 ? '…' : ''}
-                </p>
+                <span style={{ fontSize: 13, color: '#333' }}>›</span>
+              </button>
+            )
+          })}
+
+          {hasResult && (
+            <div style={{ margin: '8px 16px 4px', padding: '8px 12px', background: `${STATUS_COLORS[analysis!.status]}11`, border: `1px solid ${STATUS_COLORS[analysis!.status]}33`, borderRadius: 8 }}>
+              <span style={{ fontSize: 11, color: STATUS_COLORS[analysis!.status], fontWeight: 700 }}>
+                {analysis!.status.charAt(0).toUpperCase() + analysis!.status.slice(1)}
+              </span>
+              {analysis!.responded_at && (
+                <span style={{ fontSize: 10, color: '#555', marginLeft: 8 }}>{formatDate(analysis!.responded_at)}</span>
               )}
             </div>
           )}
-
-          {(!analysis || analysis.status === 'draft') && (
-            <button
-              onClick={handleSend}
-              disabled={sending}
-              style={{
-                width: '100%', background: '#10b981', border: 'none', borderRadius: 8,
-                padding: '10px', color: '#000', fontWeight: 700, fontSize: 13,
-                cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.7 : 1,
-              }}
-            >
-              {sending ? 'Enviando...' : 'Enviar para análise'}
-            </button>
-          )}
-
-          {analysis?.status === 'enviado' && (
-            <p style={{ fontSize: 12, color: '#999', textAlign: 'center' }}>
-              Aguardando resposta desde {analysis.sent_at ? formatDate(analysis.sent_at) : '—'}
-            </p>
-          )}
-
-          {analysis && ['aprovado', 'reprovado', 'condicionado'].includes(analysis.status) && (
-            <button
-              onClick={handleSend}
-              disabled={sending}
-              style={{
-                width: '100%', background: '#161616', border: '1px solid #222',
-                borderRadius: 8, padding: '9px', color: '#999', fontSize: 12,
-                cursor: 'pointer', marginTop: 10,
-              }}
-            >
-              Reenviar para análise
-            </button>
-          )}
         </div>
+      )}
+
+      {activeModal === 'compose' && (
+        <ComposeEmailModal
+          lead={lead}
+          onClose={() => setActiveModal(null)}
+          onSent={newAnalysis => { setAnalysis(newAnalysis); setOpen(false) }}
+        />
+      )}
+      {activeModal === 'awaiting' && (
+        <AwaitingResponseModal analysis={analysis} onClose={() => setActiveModal(null)} />
+      )}
+      {activeModal === 'result' && (
+        <ResultModal analysis={analysis} onClose={() => setActiveModal(null)} />
       )}
     </div>
   )
