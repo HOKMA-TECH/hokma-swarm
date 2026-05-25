@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 
 const NAV_ITEMS = [
   { href: '/dashboard',         label: 'Dashboard',         icon: 'grid' },
+  { href: '/clientes',          label: 'Clientes',          icon: 'users' },
   { href: '/pipeline',          label: 'Pipeline',          icon: 'bar' },
   { href: '/agenda',            label: 'Agenda',            icon: 'cal' },
   { href: '/relatorios',        label: 'Relatórios',        icon: 'chart' },
@@ -22,6 +23,7 @@ function NavIcon({ type }: { type: string }) {
   if (type === 'chart') return <svg {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
   if (type === 'sun')   return <svg {...props}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
   if (type === 'globe') return <svg {...props}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+  if (type === 'users') return <svg {...props}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
   return null
 }
 
