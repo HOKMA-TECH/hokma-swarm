@@ -12,7 +12,7 @@
   --surface: #111111;
   --surface2: #161616;
   --surface3: #1c1c1c;
-  --border: oklch(0.922 0 0);
+  --border: #222222;
   --border2: #2a2a2a;
   --green: #00c853;
   --green2: #00e676;
@@ -124,7 +124,7 @@ body {
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: #222222;
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
   --chart-1: oklch(0.87 0 0);
