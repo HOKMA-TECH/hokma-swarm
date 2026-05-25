@@ -4,7 +4,8 @@ import { LeadsBarChart } from '@/components/dashboard/LeadsBarChart'
 import { StageDonut } from '@/components/dashboard/StageDonut'
 import { RegiaoDonut } from '@/components/dashboard/RegiaoDonut'
 import { RecentLeads } from '@/components/dashboard/RecentLeads'
-import { format, subDays } from 'date-fns'
+import { AgendaWeekDropdown } from '@/components/dashboard/AgendaWeekDropdown'
+import { format, subDays, startOfWeek, endOfWeek } from 'date-fns'
 import type { Stage } from '@/types/database'
 
 export default async function DashboardPage() {
@@ -14,6 +15,8 @@ export default async function DashboardPage() {
   const todayStr = format(today, 'yyyy-MM-dd')
   const monthStart = format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd')
   const thirtyDaysAgo = subDays(today, 30).toISOString()
+  const weekStart = startOfWeek(today, { weekStartsOn: 1 }).toISOString()
+  const weekEnd = endOfWeek(today, { weekStartsOn: 1 }).toISOString()
 
   const [
     { count: leadsHoje },
@@ -22,6 +25,7 @@ export default async function DashboardPage() {
     { data: stageData },
     { data: dailyRaw },
     { data: recentLeads },
+    { data: weekAppointments },
   ] = await Promise.all([
     supabase.from('leads').select('*', { count: 'exact', head: true })
       .gte('created_at', `${todayStr}T00:00:00`),
@@ -32,6 +36,11 @@ export default async function DashboardPage() {
     supabase.from('leads').select('stage, tipo_imovel').gte('created_at', thirtyDaysAgo),
     supabase.from('leads').select('created_at').gte('created_at', thirtyDaysAgo),
     supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(6),
+    supabase.from('appointments')
+      .select('id, title, type, start_at, status, lead:leads(nome)')
+      .gte('start_at', weekStart)
+      .lte('start_at', weekEnd)
+      .order('start_at'),
   ])
 
   // Stage donut
@@ -68,8 +77,10 @@ export default async function DashboardPage() {
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ height: 40, display: 'flex', alignItems: 'center' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 40 }}>
         <h1 style={{ fontSize: 16, fontWeight: 600 }}>Dashboard</h1>
+        <AgendaWeekDropdown appointments={(weekAppointments ?? []) as any} />
       </div>
 
       {/* KPI row */}
@@ -80,14 +91,14 @@ export default async function DashboardPage() {
         <KpiCard label="Taxa de Conversão" value={`${taxaConversao}%`} />
       </div>
 
-      {/* Charts row — 3 equal columns */}
+      {/* Charts row */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 14 }}>
         <LeadsBarChart data={barData} />
         <StageDonut data={stageChartData} />
         <RegiaoDonut data={regiaoData} />
       </div>
 
-      {/* Recent leads — smaller */}
+      {/* Recent leads */}
       <RecentLeads leads={recentLeads ?? []} />
     </div>
   )
