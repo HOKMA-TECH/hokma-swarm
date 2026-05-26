@@ -4,6 +4,7 @@ import { Webhook } from 'https://esm.sh/svix@1.15.0'
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const WEBHOOK_SECRET       = Deno.env.get('RESEND_WEBHOOK_SECRET') ?? ''
+const RESEND_API_KEY       = Deno.env.get('RESEND_API_KEY') ?? ''
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -63,12 +64,47 @@ Deno.serve(async (req) => {
     return json({ error: 'Invalid JSON' }, 400)
   }
 
-  // Resend envia { type: 'email.received', data: { subject, text, html, from, attachments, ... } }
+  // Log completo para diagnóstico — remover após confirmar campos do Resend
+  console.log('RESEND_PAYLOAD_KEYS:', JSON.stringify(Object.keys(event?.data ?? {})))
+  console.log('RESEND_DATA_SAMPLE:', JSON.stringify({
+    subject: event?.data?.subject,
+    from:    event?.data?.from,
+    hasText: !!event?.data?.text,
+    hasHtml: !!event?.data?.html,
+    textLen: (event?.data?.text ?? '').length,
+    htmlLen: (event?.data?.html ?? '').length,
+    allKeys: Object.keys(event?.data ?? {}),
+  }))
+
   const data = event?.data ?? event
-  const subject: string     = data?.subject ?? ''
-  const body: string        = data?.text ?? data?.html ?? ''
-  const fromEmail: string   = data?.from ?? ''
-  const attachments: any[]  = data?.attachments ?? []
+  const subject: string    = data?.subject ?? ''
+  const fromEmail: string  = data?.from ?? ''
+  const attachments: any[] = data?.attachments ?? []
+  const emailId: string    = data?.email_id ?? ''
+
+  // Tenta múltiplos campos onde o Resend pode enviar o corpo
+  let body: string =
+    data?.text       ??
+    data?.html       ??
+    data?.body       ??
+    data?.plain_text ??
+    data?.text_body  ??
+    data?.html_body  ??
+    ''
+
+  // Fallback: tenta buscar corpo via Resend API com email_id
+  if (!body && emailId && RESEND_API_KEY) {
+    try {
+      const r = await fetch(`https://api.resend.com/emails/${emailId}`, {
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}` },
+      })
+      if (r.ok) {
+        const full = await r.json()
+        body = full.text ?? full.html ?? ''
+        if (body) console.log('Corpo obtido via Resend API GET /emails')
+      }
+    } catch { /* se falhar, segue sem corpo */ }
+  }
 
   // Extrai o lead_id do assunto ou corpo (formatos: [ref:uuid] ou ID:uuid)
   const match = (subject + ' ' + body).match(
@@ -81,11 +117,13 @@ Deno.serve(async (req) => {
 
   const lead_id = match[1]
 
-  // Só classifica se o corpo tiver conteúdo; senão marca como 'recebido' (sem inventar resultado)
+  // Só classifica se o corpo tiver conteúdo; senão marca como 'recebido'
   const bodyTrimmed = body.trim()
   const status = bodyTrimmed
     ? classifyStatus(subject + ' ' + bodyTrimmed)
     : 'recebido'
+
+  console.log(`lead_id: ${lead_id} | status: ${status} | temCorpo: ${!!bodyTrimmed}`)
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -100,7 +138,6 @@ Deno.serve(async (req) => {
     return json({ error: 'analysis not found' }, 404)
   }
 
-  // Normaliza metadados dos anexos (só nome e tipo, sem conteúdo)
   const attachmentsMeta = attachments
     .filter((a: any) => a.filename)
     .map((a: any) => ({ filename: a.filename, content_type: a.content_type ?? '' }))
