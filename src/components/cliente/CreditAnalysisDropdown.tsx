@@ -119,6 +119,59 @@ function EmailChipInput({
   )
 }
 
+/* ── Email body builder ───────────────────────────────────── */
+function buildEmailBody(lead: Lead): string {
+  const ni = (v: string | null | undefined) => v || 'Não informado'
+  const fmtR = (v: number | null | undefined) =>
+    v != null ? 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : 'Não informado'
+  const ordinal = (n: number) => n === 1 ? '1º' : n === 2 ? '2º' : n === 3 ? '3º' : n + 'º'
+
+  type P = {
+    nome?: string | null; cpf?: string | null; email?: string | null
+    telefone?: string | null; endereco?: string | null; profissao?: string | null
+    renda?: number | null; tipo_renda?: string | null; cotista?: boolean; fator_social?: boolean
+  }
+
+  function propBlock(idx: number, p: P) {
+    let s = ordinal(idx) + ' PROPONENTE\n'
+    s += 'NOME: ' + ni(p.nome) + '\n'
+    s += 'CPF: ' + ni(p.cpf) + '\n'
+    s += 'E-MAIL: ' + ni(p.email) + '\n'
+    s += 'TELEFONE: ' + ni(p.telefone) + '\n'
+    if (p.endereco) s += 'ENDEREÇO: ' + p.endereco + '\n'
+    if (p.profissao) s += 'PROFISSÃO: ' + p.profissao + '\n'
+    s += 'RENDA: ' + fmtR(p.renda) + '\n'
+    if (p.tipo_renda) s += 'TIPO DE RENDA: ' + (p.tipo_renda.charAt(0).toUpperCase() + p.tipo_renda.slice(1)) + '\n'
+    s += 'COTISTA FGTS: ' + (p.cotista ? 'Sim' : 'Não') + '\n'
+    s += 'FATOR SOCIAL: ' + (p.fator_social ? 'Sim' : 'Não') + '\n'
+    return s
+  }
+
+  let body = 'Bom dia, solicito a análise de crédito do cliente em questão.\n\n'
+
+  body += propBlock(1, {
+    nome: lead.nome, cpf: lead.cpf, email: lead.email,
+    telefone: lead.telefone, endereco: lead.endereco, profissao: lead.profissao,
+    renda: lead.renda, tipo_renda: lead.tipo_renda, cotista: lead.cotista, fator_social: lead.fator_social,
+  }) + '\n'
+
+  const extras = lead.proponentes ?? []
+  extras.forEach((p, i) => { body += propBlock(i + 2, p) + '\n' })
+
+  if (lead.regiao_interesse || lead.empreendimento || lead.vgv) {
+    body += 'EMPREENDIMENTO\n'
+    if (lead.regiao_interesse) body += 'REGIÃO DE INTERESSE: ' + lead.regiao_interesse + '\n'
+    if (lead.empreendimento) body += 'EMPREENDIMENTO: ' + lead.empreendimento + '\n'
+    if (lead.vgv) body += 'VGV: ' + fmtR(lead.vgv) + '\n'
+    body += '\n'
+  }
+
+  if (lead.campaign_source) body += 'CAMPANHA: ' + lead.campaign_source + '\n\n'
+
+  body += 'Documentos em anexo.'
+  return body
+}
+
 /* ── Compose Email Modal (Step 2) ─────────────────────────── */
 function ComposeEmailModal({
   lead,
@@ -140,20 +193,9 @@ function ComposeEmailModal({
   const [bccInput, setBccInput] = useState('')
 
   const [subject, setSubject] = useState(
-    'HOKMA SWARM | SOLICITO ANÁLISE | ' + (lead.tipo_imovel ?? 'Não informado') + ' | ' + lead.nome + (lead.cpf ? ' (' + lead.cpf + ')' : '')
+    'HOKMA SWARM | SOLICITO ANÁLISE | ' + (lead.empreendimento ?? lead.tipo_imovel ?? 'Não informado') + ' | ' + lead.nome + (lead.cpf ? ' | ' + lead.cpf : '')
   )
-  const [body, setBody] = useState(
-    'Bom dia, solicito a análise de crédito do cliente em questão.\n\n' +
-    'PROPONENTE\n' +
-    'NOME: ' + lead.nome + '\n' +
-    'CPF: ' + (lead.cpf ?? 'Não informado') + '\n' +
-    'E-MAIL: ' + (lead.email ?? 'Não informado') + '\n' +
-    'TELEFONE: ' + lead.telefone + '\n' +
-    'RENDA: ' + (lead.renda != null ? 'R$ ' + lead.renda.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : 'Não informado') + '\n' +
-    'TIPO DE IMÓVEL: ' + (lead.tipo_imovel ?? 'Não informado') + '\n' +
-    'CAMPANHA: ' + (lead.campaign_source ?? 'Não informado') + '\n\n' +
-    'Documentos em anexo.'
-  )
+  const [body, setBody] = useState(() => buildEmailBody(lead))
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
