@@ -9,42 +9,23 @@ import {
 
 // ── Tool Definitions ──────────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  { id: 'all', label: 'Todos' },
-  { id: 'converter-em', label: 'Em PDF', color: '#f59e0b' },
-  { id: 'converter-de', label: 'De PDF', color: '#3b82f6' },
-  { id: 'organizar', label: 'Organizar', color: '#8b5cf6' },
-  { id: 'seguranca', label: 'Segurança', color: '#ef4444' },
-  { id: 'otimizar', label: 'Otimizar', color: '#10b981' },
-]
+const CATEGORY_COLOR: Record<string, string> = {
+  'converter-em': '#f59e0b',
+  'converter-de': '#3b82f6',
+  'organizar':    '#8b5cf6',
+  'otimizar':     '#10b981',
+}
 
 const TOOLS = [
-  // Converter em PDF
-  { id: 'images-to-pdf', label: 'Imagens → PDF', desc: 'Converte JPG, PNG, HEIC, WebP em um PDF', category: 'converter-em', emoji: '🖼️', accept: '.jpg,.jpeg,.png,.heic,.heif,.webp', multiple: true, active: true },
-  { id: 'word-to-pdf', label: 'Word → PDF', desc: 'Converte documentos DOCX para PDF', category: 'converter-em', emoji: '📝', accept: '.docx,.doc', multiple: false, active: false },
-  { id: 'html-to-pdf', label: 'HTML → PDF', desc: 'Converte páginas web para PDF', category: 'converter-em', emoji: '🌐', accept: '.html,.htm', multiple: false, active: false },
-
-  // Converter de PDF
-  { id: 'pdf-to-image', label: 'PDF → Imagem', desc: 'Cada página do PDF em JPG ou PNG', category: 'converter-de', emoji: '📸', accept: '.pdf', multiple: false, active: true },
-  { id: 'pdf-to-word', label: 'PDF → Word', desc: 'Extrai texto do PDF para DOCX editável', category: 'converter-de', emoji: '📄', accept: '.pdf', multiple: false, active: false },
-  { id: 'pdf-to-excel', label: 'PDF → Excel', desc: 'Converte tabelas do PDF para XLSX', category: 'converter-de', emoji: '📊', accept: '.pdf', multiple: false, active: false },
-
-  // Organizar
-  { id: 'merge-pdf', label: 'Mesclar PDFs', desc: 'Combina vários PDFs em um único arquivo', category: 'organizar', emoji: '🔗', accept: '.pdf', multiple: true, active: true },
-  { id: 'split-pdf', label: 'Dividir PDF', desc: 'Separa por página ou por intervalo', category: 'organizar', emoji: '✂️', accept: '.pdf', multiple: false, active: true },
-  { id: 'remove-pages', label: 'Remover páginas', desc: 'Exclui páginas específicas do PDF', category: 'organizar', emoji: '🗑️', accept: '.pdf', multiple: false, active: true },
-  { id: 'extract-pages', label: 'Extrair páginas', desc: 'Salva páginas selecionadas em novo PDF', category: 'organizar', emoji: '📋', accept: '.pdf', multiple: false, active: true },
-  { id: 'rotate-pdf', label: 'Rodar PDF', desc: 'Rotaciona todas as páginas do PDF', category: 'organizar', emoji: '🔄', accept: '.pdf', multiple: false, active: true },
-  { id: 'watermark', label: 'Marca d\'água', desc: 'Adiciona texto em diagonal em cada página', category: 'organizar', emoji: '💧', accept: '.pdf', multiple: false, active: true },
-
-  // Segurança
-  { id: 'protect-pdf', label: 'Proteger PDF', desc: 'Adiciona senha de acesso ao arquivo', category: 'seguranca', emoji: '🔒', accept: '.pdf', multiple: false, active: false },
-  { id: 'unlock-pdf', label: 'Desbloquear PDF', desc: 'Remove a senha de proteção do PDF', category: 'seguranca', emoji: '🔓', accept: '.pdf', multiple: false, active: false },
-
-  // Otimizar
-  { id: 'compress-pdf', label: 'Comprimir PDF', desc: 'Reduz o tamanho do arquivo PDF', category: 'otimizar', emoji: '📦', accept: '.pdf', multiple: false, active: true },
-  { id: 'repair-pdf', label: 'Reparar PDF', desc: 'Tenta recuperar PDFs corrompidos', category: 'otimizar', emoji: '🔧', accept: '.pdf', multiple: false, active: false },
-  { id: 'ocr-pdf', label: 'OCR PDF', desc: 'Extrai texto de imagens no PDF', category: 'otimizar', emoji: '🔍', accept: '.pdf', multiple: false, active: false },
+  { id: 'images-to-pdf', label: 'Imagens → PDF',   desc: 'Converte JPG, PNG, HEIC, WebP em um PDF',      category: 'converter-em', emoji: '🖼️', accept: '.jpg,.jpeg,.png,.heic,.heif,.webp', multiple: true  },
+  { id: 'pdf-to-image',  label: 'PDF → Imagem',    desc: 'Cada página do PDF em JPG ou PNG',             category: 'converter-de', emoji: '📸', accept: '.pdf',                             multiple: false },
+  { id: 'merge-pdf',     label: 'Mesclar PDFs',    desc: 'Combina vários PDFs em um único arquivo',      category: 'organizar',    emoji: '🔗', accept: '.pdf',                             multiple: true  },
+  { id: 'split-pdf',     label: 'Dividir PDF',     desc: 'Separa por página ou por intervalo',           category: 'organizar',    emoji: '✂️', accept: '.pdf',                             multiple: false },
+  { id: 'remove-pages',  label: 'Remover páginas', desc: 'Exclui páginas específicas do PDF',            category: 'organizar',    emoji: '🗑️', accept: '.pdf',                             multiple: false },
+  { id: 'extract-pages', label: 'Extrair páginas', desc: 'Salva páginas selecionadas em novo PDF',       category: 'organizar',    emoji: '📋', accept: '.pdf',                             multiple: false },
+  { id: 'rotate-pdf',    label: 'Rodar PDF',       desc: 'Rotaciona todas as páginas do PDF',            category: 'organizar',    emoji: '🔄', accept: '.pdf',                             multiple: false },
+  { id: 'watermark',     label: 'Marca d\'água',   desc: 'Adiciona texto em diagonal em cada página',    category: 'organizar',    emoji: '💧', accept: '.pdf',                             multiple: false },
+  { id: 'compress-pdf',  label: 'Comprimir PDF',   desc: 'Reduz o tamanho do arquivo PDF',               category: 'otimizar',     emoji: '📦', accept: '.pdf',                             multiple: false },
 ] as const
 
 type ToolId = typeof TOOLS[number]['id']
@@ -235,7 +216,7 @@ function ToolPanel({ tool, onBack }: { tool: Tool; onBack: () => void }) {
     setLoading(false)
   }
 
-  const catColor = CATEGORIES.find(c => c.id === tool.category)?.color ?? '#10b981'
+  const catColor = CATEGORY_COLOR[tool.category] ?? '#10b981'
 
   return (
     <div style={{ padding: 24, maxWidth: 680 }}>
@@ -457,10 +438,7 @@ function ToolPanel({ tool, onBack }: { tool: Tool; onBack: () => void }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function ConversorClient() {
-  const [category, setCategory] = useState('all')
   const [activeTool, setActiveTool] = useState<ToolId | null>(null)
-
-  const filtered = TOOLS.filter(t => category === 'all' || t.category === category)
 
   if (activeTool) {
     const tool = TOOLS.find(t => t.id === activeTool)!
@@ -469,49 +447,24 @@ export function ConversorClient() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/* Header */}
       <div style={{ marginBottom: 22 }}>
         <h1 style={{ fontSize: 16, fontWeight: 600, color: '#f0f0f0', marginBottom: 4 }}>Conversor de Arquivos</h1>
         <p style={{ fontSize: 12, color: '#555' }}>Ferramentas de PDF e conversão de documentos — processamento 100% no navegador</p>
       </div>
 
-      {/* Category filter */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {CATEGORIES.map(cat => {
-          const active = category === cat.id
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setCategory(cat.id)}
-              style={{
-                padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 500,
-                cursor: 'pointer', border: 'none', transition: 'all 0.15s',
-                background: active ? (cat.color ?? '#10b981') : '#1a1a1a',
-                color: active ? '#000' : '#888',
-              }}
-            >
-              {cat.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Tool grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-        {filtered.map(tool => {
-          const color = CATEGORIES.find(c => c.id === tool.category)?.color ?? '#10b981'
+        {TOOLS.map(tool => {
+          const color = CATEGORY_COLOR[tool.category] ?? '#10b981'
           return (
             <button
               key={tool.id}
-              onClick={() => tool.active && setActiveTool(tool.id)}
+              onClick={() => setActiveTool(tool.id)}
               style={{
-                background: '#111', border: `1px solid #1e1e1e`, borderRadius: 12,
-                padding: '16px 18px', textAlign: 'left', cursor: tool.active ? 'pointer' : 'not-allowed',
-                opacity: tool.active ? 1 : 0.45, transition: 'all 0.18s', position: 'relative',
-                display: 'flex', flexDirection: 'column', gap: 8,
+                background: '#111', border: '1px solid #1e1e1e', borderRadius: 12,
+                padding: '16px 18px', textAlign: 'left', cursor: 'pointer',
+                transition: 'all 0.18s', display: 'flex', flexDirection: 'column', gap: 8,
               }}
               onMouseEnter={e => {
-                if (!tool.active) return
                 const el = e.currentTarget
                 el.style.borderColor = color + '66'
                 el.style.transform = 'translateY(-2px)'
@@ -524,24 +477,12 @@ export function ConversorClient() {
                 el.style.boxShadow = 'none'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 24 }}>{tool.emoji}</span>
-                {!tool.active && (
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 20,
-                    background: '#2a2a2a', color: '#555', letterSpacing: '0.08em',
-                  }}>EM BREVE</span>
-                )}
-              </div>
+              <span style={{ fontSize: 24 }}>{tool.emoji}</span>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#e0e0e0', marginBottom: 3 }}>{tool.label}</div>
                 <div style={{ fontSize: 11, color: '#555', lineHeight: 1.5 }}>{tool.desc}</div>
               </div>
-              {tool.active && (
-                <div style={{ fontSize: 10, color: color, fontWeight: 600, letterSpacing: '0.05em' }}>
-                  ATIVO →
-                </div>
-              )}
+              <div style={{ fontSize: 10, color, fontWeight: 600, letterSpacing: '0.05em' }}>USAR →</div>
             </button>
           )
         })}
