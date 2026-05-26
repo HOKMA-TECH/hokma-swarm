@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Webhook } from 'https://esm.sh/svix@1.15.0'
+import { Webhook }      from 'https://esm.sh/svix@1.15.0'
+import { Resend }       from 'https://esm.sh/resend@4'
 
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -29,22 +30,6 @@ function classifyStatus(text: string): 'aprovado' | 'reprovado' | 'condicionado'
   return 'condicionado'
 }
 
-async function resendGet(path: string): Promise<any | null> {
-  try {
-    const r = await fetch(`https://api.resend.com${path}`, {
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}` },
-    })
-    if (!r.ok) {
-      console.log(`Resend API ${path} → ${r.status}`)
-      return null
-    }
-    return await r.json()
-  } catch (e) {
-    console.log(`Resend API ${path} erro:`, e)
-    return null
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -68,23 +53,26 @@ Deno.serve(async (req) => {
   let event: any
   try { event = JSON.parse(rawBody) } catch { return json({ error: 'Invalid JSON' }, 400) }
 
-  const data           = event?.data ?? event
+  const data               = event?.data ?? event
   const emailId: string    = data?.email_id ?? ''
   const subject: string    = data?.subject ?? ''
   const fromEmail: string  = data?.from ?? ''
   const attachments: any[] = data?.attachments ?? []
 
-  // Busca o email completo (com corpo) via Receiving Email API
+  const resend = new Resend(RESEND_API_KEY)
+
+  // Busca o email completo via SDK do Resend (resend.emails.received.retrieve)
   let body = ''
-  if (emailId && RESEND_API_KEY) {
-    const received = await resendGet(`/emails/received/${emailId}`)
-    console.log('Received API full response:', JSON.stringify(received))
-    if (received) {
-      body = received.text ?? received.html ?? ''
+  if (emailId) {
+    const { data: received, error } = await (resend.emails as any).received.retrieve(emailId)
+    if (error) console.log('Received email error:', JSON.stringify(error))
+    else {
+      body = received?.text ?? received?.html ?? ''
+      console.log(`Received email: temCorpo=${!!body} len=${body.length}`)
     }
   }
 
-  // Extrai o lead_id do assunto (e corpo como fallback)
+  // Extrai o lead_id do assunto (ou corpo)
   const match = (subject + ' ' + body).match(
     /(?:\[ref:|ID:)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]?/i
   )
@@ -105,7 +93,7 @@ Deno.serve(async (req) => {
     .from('credit_analyses').select('id').eq('lead_id', lead_id).maybeSingle()
   if (!analysis) return json({ error: 'analysis not found' }, 404)
 
-  // Busca conteúdo de cada anexo via Attachments API e faz upload no Storage
+  // Busca conteúdo de cada anexo via resend.attachments.retrieve e faz upload no Storage
   const attachmentsMeta: { filename: string; content_type: string; url?: string }[] = []
   for (const att of attachments.filter((a: any) => a.filename)) {
     const meta: { filename: string; content_type: string; url?: string } = {
@@ -113,9 +101,13 @@ Deno.serve(async (req) => {
       content_type: att.content_type ?? '',
     }
 
-    if (att.id && emailId && RESEND_API_KEY) {
-      const attData = await resendGet(`/emails/received/${emailId}/attachments/${att.id}`)
-      const b64 = attData?.content ?? attData?.data ?? attData?.body ?? ''
+    if (att.id && emailId) {
+      const { data: attData, error: attErr } = await (resend as any).attachments.retrieve({
+        id:      att.id,
+        emailId: emailId,
+      })
+      if (attErr) console.log('Attachment error:', JSON.stringify(attErr))
+      const b64 = attData?.content ?? attData?.data ?? ''
       if (b64) {
         try {
           const filePath = `responses/${lead_id}/${Date.now()}_${att.filename}`
@@ -126,7 +118,7 @@ Deno.serve(async (req) => {
           if (!upErr) {
             const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(filePath)
             meta.url = urlData.publicUrl
-            console.log(`Anexo salvo: ${att.filename} → ${meta.url}`)
+            console.log(`Anexo salvo: ${att.filename}`)
           }
         } catch (e) { console.log('Upload erro:', e) }
       }
