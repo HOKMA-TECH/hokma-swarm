@@ -36,6 +36,7 @@ export function Sidebar() {
 
   async function handleLogout() {
     await supabase.auth.signOut()
+    router.refresh()
     router.push('/login')
   }
 
