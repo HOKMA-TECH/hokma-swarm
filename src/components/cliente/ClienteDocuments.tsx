@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { type Document } from '@/types/database'
 import { formatDate } from '@/lib/utils'
+import { validateFile, sanitizeFileName } from '@/lib/upload'
 import { ArrowLeftRight, Download, Eye, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { DocumentViewerModal } from './DocumentViewerModal'
 import { DocumentConverterModal } from './DocumentConverterModal'
@@ -42,11 +43,20 @@ export function ClienteDocuments({ leadId, initialDocs }: Props) {
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0) return
-    setUploading(true)
 
     for (const file of files) {
-      const ext = file.name.split('.').pop()
-      const path = `${leadId}/${crypto.randomUUID()}-${file.name}`
+      const validationError = validateFile(file)
+      if (validationError) { alert(validationError); continue }
+    }
+
+    setUploading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+
+    for (const file of files) {
+      if (validateFile(file)) continue
+      const safeName = sanitizeFileName(file.name)
+      const ext = safeName.split('.').pop()
+      const path = `${leadId}/${crypto.randomUUID()}-${safeName}`
 
       const { error: uploadError } = await supabase.storage
         .from('documentos')
@@ -55,10 +65,10 @@ export function ClienteDocuments({ leadId, initialDocs }: Props) {
       if (!uploadError) {
         const { data: doc } = await supabase.from('documents').insert({
           lead_id: leadId,
-          name: file.name,
+          name: safeName,
           type: ext ?? 'arquivo',
           storage_path: path,
-          uploaded_by: 'corretor',
+          uploaded_by: user?.id ?? 'unknown',
         }).select().single()
 
         if (doc) setDocs(prev => [...prev, doc as Document])

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { validateFile, sanitizeFileName } from '@/lib/upload'
 import type { Lead } from '@/types/database'
 
 const inp: React.CSSProperties = {
@@ -261,17 +262,26 @@ export function NovoClienteDialog({ onClose, onCreated, onDocumentUploaded, redi
     if (!newLeadId) return
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
-    setUploading(true)
+
     for (const file of files) {
-      const path = `${newLeadId}/${crypto.randomUUID()}-${file.name}`
+      const err = validateFile(file)
+      if (err) { alert(err); continue }
+    }
+
+    setUploading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    for (const file of files) {
+      if (validateFile(file)) continue
+      const safeName = sanitizeFileName(file.name)
+      const path = `${newLeadId}/${crypto.randomUUID()}-${safeName}`
       const { error: uploadErr } = await supabase.storage.from('documentos').upload(path, file)
       if (!uploadErr) {
         await supabase.from('documents').insert({
-          lead_id: newLeadId, name: file.name,
-          type: file.name.split('.').pop() ?? 'arquivo',
-          storage_path: path, uploaded_by: 'corretor',
+          lead_id: newLeadId, name: safeName,
+          type: safeName.split('.').pop() ?? 'arquivo',
+          storage_path: path, uploaded_by: user?.id ?? 'unknown',
         })
-        setUploadedDocs(prev => [...prev, file.name])
+        setUploadedDocs(prev => [...prev, safeName])
         onDocumentUploaded?.(newLeadId)
       }
     }

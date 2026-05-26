@@ -37,7 +37,10 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   } catch {
-    // Se a verificação de auth falhar (ex: Supabase inacessível), deixa passar
+    // Se auth falhar, redireciona para login — nunca expõe rotas protegidas
+    if (!request.nextUrl.pathname.startsWith('/login')) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
     return NextResponse.next()
   }
 
