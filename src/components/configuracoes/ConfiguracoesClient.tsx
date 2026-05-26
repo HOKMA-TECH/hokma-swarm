@@ -315,6 +315,17 @@ function MfaSection() {
   async function startEnroll() {
     setLoading(true)
     setFeedback(null)
+
+    // Remove any existing unverified TOTP factors before enrolling
+    const { data: existing } = await supabase.auth.mfa.listFactors()
+    if (existing?.totp?.length) {
+      for (const f of existing.totp) {
+        if (f.status !== 'verified') {
+          await supabase.auth.mfa.unenroll({ factorId: f.id })
+        }
+      }
+    }
+
     const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'HOKMA SWARM' })
     setLoading(false)
     if (error || !data) return setFeedback({ msg: error?.message ?? 'Erro ao iniciar 2FA.', ok: false })
