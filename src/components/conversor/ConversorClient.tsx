@@ -213,7 +213,7 @@ function ToolPanel({ tool, onBack }: { tool: Tool; onBack: () => void }) {
   const catColor = CATEGORY_COLOR[tool.category] ?? '#10b981'
 
   return (
-    <div style={{ padding: 24, maxWidth: 680 }}>
+    <div style={{ padding: 24, maxWidth: 680, margin: '0 auto' }}>
       {/* Header */}
       <button onClick={onBack} style={{
         background: 'none', border: 'none', color: '#666', fontSize: 12, cursor: 'pointer',
@@ -426,7 +426,7 @@ export function ConversorClient() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
       <div style={{ marginBottom: 22 }}>
         <h1 style={{ fontSize: 16, fontWeight: 600, color: '#f0f0f0', marginBottom: 4 }}>Conversor de Arquivos</h1>
         <p style={{ fontSize: 12, color: '#555' }}>Ferramentas de PDF e conversão de documentos — processamento 100% no navegador</p>
