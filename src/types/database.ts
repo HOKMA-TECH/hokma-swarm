@@ -15,6 +15,19 @@ export type CreatedBy = 'corretor' | 'agent'
 export type ConversationRole = 'lead' | 'agent'
 export type CreditStatus = 'draft' | 'enviado' | 'aprovado' | 'reprovado' | 'condicionado'
 
+export interface Proponente {
+  nome: string | null
+  cpf: string | null
+  email: string | null
+  telefone: string | null
+  endereco: string | null
+  profissao: string | null
+  renda: number | null
+  tipo_renda: 'formal' | 'informal' | null
+  cotista: boolean
+  fator_social: boolean
+}
+
 export interface Lead {
   id: string
   nome: string
@@ -27,6 +40,15 @@ export interface Lead {
   campaign_source: string | null
   loss_reason: string | null
   observations: string | null
+  endereco: string | null
+  profissao: string | null
+  tipo_renda: 'formal' | 'informal' | null
+  cotista: boolean
+  fator_social: boolean
+  regiao_interesse: string | null
+  empreendimento: string | null
+  vgv: number | null
+  proponentes: Proponente[] | null
   created_at: string
   updated_at: string
 }
