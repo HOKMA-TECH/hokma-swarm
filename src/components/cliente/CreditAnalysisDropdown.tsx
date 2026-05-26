@@ -14,11 +14,11 @@ const STEPS = [
 ]
 
 const STATUS_STEP: Record<string, number> = {
-  draft: 1, enviado: 2, aprovado: 4, reprovado: 4, condicionado: 4,
+  draft: 1, enviado: 2, aprovado: 4, reprovado: 4, condicionado: 4, recebido: 4,
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  aprovado: '#10b981', reprovado: '#ef5350', condicionado: '#ffab40',
+  aprovado: '#10b981', reprovado: '#ef5350', condicionado: '#ffab40', recebido: '#888',
 }
 
 const overlayStyle: React.CSSProperties = {
@@ -226,7 +226,9 @@ function ComposeEmailModal({
     const analysis = data ?? {
       id: '', lead_id: lead.id, status: 'enviado' as const,
       sent_at: new Date().toISOString(), responded_at: null,
-      approved_value: null, response_text: null, created_at: new Date().toISOString(),
+      approved_value: null, response_text: null,
+      response_subject: null, response_from: null, response_attachments: null,
+      created_at: new Date().toISOString(),
     }
     onSent(analysis)
     onClose()
@@ -368,20 +370,24 @@ function AwaitingResponseModal({ analysis, onClose }: { analysis: CreditAnalysis
 
 /* ── Result Modal (Step 4) ────────────────────────────────── */
 function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; onClose: () => void }) {
-  const hasResult = analysis != null && ['aprovado', 'reprovado', 'condicionado'].includes(analysis.status)
+  const hasResult = analysis != null && ['aprovado', 'reprovado', 'condicionado', 'recebido'].includes(analysis.status)
   const statusColor = hasResult ? (STATUS_COLORS[analysis!.status] ?? '#555') : '#555'
-  const statusLabel = hasResult ? (analysis!.status.charAt(0).toUpperCase() + analysis!.status.slice(1)) : ''
+  const statusLabel = hasResult
+    ? analysis!.status === 'recebido' ? 'Recebido' : (analysis!.status.charAt(0).toUpperCase() + analysis!.status.slice(1))
+    : ''
 
   return (
     <div style={overlayStyle} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ ...modalStyle, width: 520 }}>
-        <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ ...modalStyle, width: 560, maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>Resultado da Análise</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
-        <div style={{ padding: '24px' }}>
+        <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
           {hasResult ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Status + data */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{
                   fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 20,
@@ -393,6 +399,8 @@ function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; o
                   <span style={{ fontSize: 11, color: '#555' }}>{formatDate(analysis!.responded_at)}</span>
                 )}
               </div>
+
+              {/* Valor aprovado */}
               {analysis!.approved_value != null && (
                 <div style={{ background: '#10b98111', border: '1px solid #10b98133', borderRadius: 10, padding: '14px 16px' }}>
                   <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>Valor aprovado</div>
@@ -401,18 +409,75 @@ function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; o
                   </div>
                 </div>
               )}
+
+              {/* Cabeçalho do email */}
+              <div style={{ background: '#161616', border: '1px solid #222', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 14, opacity: 0.5 }}>✉</span>
+                  <span style={{ fontSize: 11, color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Email recebido</span>
+                </div>
+                <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {analysis!.response_from && (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: 11, color: '#555', minWidth: 52, flexShrink: 0, paddingTop: 1 }}>De:</span>
+                      <span style={{ fontSize: 12, color: '#aaa', wordBreak: 'break-all' }}>{analysis!.response_from}</span>
+                    </div>
+                  )}
+                  {analysis!.response_subject && (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: 11, color: '#555', minWidth: 52, flexShrink: 0, paddingTop: 1 }}>Assunto:</span>
+                      <span style={{ fontSize: 12, color: '#f0f0f0', fontWeight: 600, lineHeight: 1.4 }}>
+                        {/* Remove o [ref:uuid] do assunto exibido */}
+                        {analysis!.response_subject.replace(/\s*\[ref:[^\]]+\]/gi, '').trim()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Corpo do email */}
               {analysis!.response_text ? (
                 <div style={{ background: '#161616', border: '1px solid #222', borderRadius: 10, padding: '14px 16px' }}>
-                  <div style={{ fontSize: 11, color: '#555', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span>✉</span><span>Email recebido</span>
-                  </div>
+                  <div style={{ fontSize: 11, color: '#555', marginBottom: 10 }}>Mensagem</div>
                   <div style={{ fontSize: 13, color: '#f0f0f0', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
                     {analysis!.response_text}
                   </div>
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: '#555', fontStyle: 'italic' }}>Sem texto de resposta registrado.</div>
+                <div style={{ fontSize: 12, color: '#555', fontStyle: 'italic', padding: '4px 0' }}>
+                  Sem texto no corpo da mensagem.
+                </div>
               )}
+
+              {/* Anexos */}
+              {analysis!.response_attachments && analysis!.response_attachments.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, color: '#555', marginBottom: 8 }}>
+                    Anexos ({analysis!.response_attachments.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {analysis!.response_attachments.map((att, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        background: '#161616', border: '1px solid #2a2a2a', borderRadius: 8, padding: '8px 12px',
+                      }}>
+                        <span style={{ fontSize: 14 }}>
+                          {att.content_type?.startsWith('image/') ? '🖼' : '📎'}
+                        </span>
+                        <span style={{ flex: 1, fontSize: 12, color: '#f0f0f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {att.filename}
+                        </span>
+                        {att.content_type && (
+                          <span style={{ fontSize: 10, color: '#555', flexShrink: 0 }}>
+                            {att.content_type.split('/')[1]?.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </div>
           ) : (
             <div style={{ fontSize: 13, color: '#555', textAlign: 'center', padding: '20px 0', lineHeight: 1.6 }}>
@@ -420,7 +485,7 @@ function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; o
             </div>
           )}
         </div>
-        <div style={{ padding: '14px 24px', borderTop: '1px solid #1c1c1c' }}>
+        <div style={{ padding: '14px 24px', borderTop: '1px solid #1c1c1c', flexShrink: 0 }}>
           <button onClick={onClose} style={{ width: '100%', background: '#161616', border: '1px solid #222', borderRadius: 8, padding: '10px', color: '#999', fontSize: 13, cursor: 'pointer' }}>
             Fechar
           </button>
@@ -466,7 +531,7 @@ export function CreditAnalysisDropdown({ leadId, lead, creditAnalysis }: Props) 
     if (idx === 3) setActiveModal('result')
   }
 
-  const hasResult = analysis != null && ['aprovado', 'reprovado', 'condicionado'].includes(analysis.status)
+  const hasResult = analysis != null && ['aprovado', 'reprovado', 'condicionado', 'recebido'].includes(analysis.status)
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>

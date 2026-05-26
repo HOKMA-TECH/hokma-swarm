@@ -13,7 +13,7 @@
 export type EventType = 'atendimento' | 'visita' | 'agencia'
 export type CreatedBy = 'corretor' | 'agent'
 export type ConversationRole = 'lead' | 'agent'
-export type CreditStatus = 'draft' | 'enviado' | 'aprovado' | 'reprovado' | 'condicionado'
+export type CreditStatus = 'draft' | 'enviado' | 'aprovado' | 'reprovado' | 'condicionado' | 'recebido'
 
 export interface Proponente {
   nome: string | null
@@ -95,6 +95,9 @@ export interface CreditAnalysis {
   responded_at: string | null
   approved_value: number | null
   response_text: string | null
+  response_subject: string | null
+  response_from: string | null
+  response_attachments: { filename: string; content_type: string }[] | null
   created_at: string
 }
 

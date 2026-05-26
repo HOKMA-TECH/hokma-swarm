@@ -63,10 +63,12 @@ Deno.serve(async (req) => {
     return json({ error: 'Invalid JSON' }, 400)
   }
 
-  // Resend envia { type: 'email.received', data: { subject, text, html, from, ... } }
+  // Resend envia { type: 'email.received', data: { subject, text, html, from, attachments, ... } }
   const data = event?.data ?? event
-  const subject: string = data?.subject ?? ''
-  const body: string    = data?.text ?? data?.html ?? ''
+  const subject: string     = data?.subject ?? ''
+  const body: string        = data?.text ?? data?.html ?? ''
+  const fromEmail: string   = data?.from ?? ''
+  const attachments: any[]  = data?.attachments ?? []
 
   // Extrai o lead_id do assunto ou corpo (formatos: [ref:uuid] ou ID:uuid)
   const match = (subject + ' ' + body).match(
@@ -78,7 +80,12 @@ Deno.serve(async (req) => {
   }
 
   const lead_id = match[1]
-  const status  = classifyStatus(subject + ' ' + body)
+
+  // Só classifica se o corpo tiver conteúdo; senão marca como 'recebido' (sem inventar resultado)
+  const bodyTrimmed = body.trim()
+  const status = bodyTrimmed
+    ? classifyStatus(subject + ' ' + bodyTrimmed)
+    : 'recebido'
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -93,17 +100,25 @@ Deno.serve(async (req) => {
     return json({ error: 'analysis not found' }, 404)
   }
 
+  // Normaliza metadados dos anexos (só nome e tipo, sem conteúdo)
+  const attachmentsMeta = attachments
+    .filter((a: any) => a.filename)
+    .map((a: any) => ({ filename: a.filename, content_type: a.content_type ?? '' }))
+
   await Promise.all([
     supabase.from('credit_analyses').update({
       status,
-      response_text: body.slice(0, 4000),
-      responded_at:  new Date().toISOString(),
+      response_subject:     subject || null,
+      response_from:        fromEmail || null,
+      response_text:        bodyTrimmed ? bodyTrimmed.slice(0, 4000) : null,
+      response_attachments: attachmentsMeta.length > 0 ? attachmentsMeta : null,
+      responded_at:         new Date().toISOString(),
     }).eq('lead_id', lead_id),
 
     supabase.from('timeline_events').insert({
       lead_id,
       type:    'credito_respondido',
-      payload: { status, from: data?.from },
+      payload: { status, from: fromEmail },
     }),
   ])
 
