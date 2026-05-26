@@ -4,26 +4,27 @@ import { LeadsLineChart } from '@/components/relatorios/LeadsLineChart'
 import { ConversionFunnel } from '@/components/relatorios/ConversionFunnel'
 import { OrigemDonut } from '@/components/relatorios/OrigemDonut'
 import { PrintButton } from '@/components/relatorios/PrintButton'
-import { RelatoriosPeriodFilter } from '@/components/relatorios/RelatoriosPeriodFilter'
+import { PeriodSelector } from '@/components/dashboard/PeriodSelector'
 import {
-  format, startOfMonth, endOfMonth, subMonths,
+  format, startOfMonth, subMonths,
   eachDayOfInterval, differenceInDays,
 } from 'date-fns'
 
-type PeriodKey = 'mes_atual' | 'mes_anterior' | 'trimestre' | 'semestre'
+type PeriodKey = 'este_mes' | 'trimestre' | 'semestre' | 'personalizado'
 
-function getPeriodRange(periodo: PeriodKey, today: Date): { from: Date; to: Date } {
-  switch (periodo) {
-    case 'mes_anterior': {
-      const m = subMonths(today, 1)
-      return { from: startOfMonth(m), to: endOfMonth(m) }
-    }
+function getPeriodRange(period: PeriodKey, today: Date, from?: string, to?: string): { from: Date; to: Date } {
+  switch (period) {
     case 'trimestre':
       return { from: subMonths(startOfMonth(today), 3), to: today }
     case 'semestre':
       return { from: subMonths(startOfMonth(today), 6), to: today }
+    case 'personalizado':
+      return {
+        from: from ? new Date(from + 'T00:00:00') : new Date(today.getFullYear(), today.getMonth(), 1),
+        to:   to   ? new Date(to   + 'T23:59:59') : today,
+      }
     default:
-      return { from: startOfMonth(today), to: today }
+      return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: today }
   }
 }
 
@@ -44,15 +45,15 @@ function calcDelta(curr: number, prev: number): { delta: string; up: boolean } {
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string }>
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>
 }) {
   const params = await searchParams
-  const periodo = (params.periodo ?? 'mes_atual') as PeriodKey
+  const period = (params.period ?? 'este_mes') as PeriodKey
 
   const supabase = await createClient()
   const today = new Date()
 
-  const current = getPeriodRange(periodo, today)
+  const current = getPeriodRange(period, today, params.from, params.to)
   const prev = getPrevPeriodRange(current)
 
   const [{ data: rawLeads }, { data: rawPrev }] = await Promise.all([
@@ -168,7 +169,7 @@ export default async function RelatoriosPage({
         flexWrap: 'wrap',
       }}>
         <h1 style={{ fontSize: 16, fontWeight: 600 }}>Relatórios</h1>
-        <RelatoriosPeriodFilter current={periodo} />
+        <PeriodSelector basePath="/relatorios" />
         <div style={{ flex: 1 }} />
         <PrintButton />
       </div>

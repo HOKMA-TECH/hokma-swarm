@@ -18,7 +18,7 @@ const inp: React.CSSProperties = {
   colorScheme: 'dark',
 }
 
-export function PeriodSelector() {
+export function PeriodSelector({ basePath = '/dashboard' }: { basePath?: string }) {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const period       = (searchParams.get('period') ?? 'este_mes') as Period
@@ -30,7 +30,7 @@ export function PeriodSelector() {
   function navigate(p: Period, f?: string, t?: string) {
     const qs = new URLSearchParams({ period: p })
     if (p === 'personalizado' && f && t) { qs.set('from', f); qs.set('to', t) }
-    router.push(`/dashboard?${qs.toString()}`)
+    router.push(`${basePath}?${qs.toString()}`)
   }
 
   function handleClick(p: Period) {
