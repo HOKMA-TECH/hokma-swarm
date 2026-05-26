@@ -1,7 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const RESEND_API_KEY         = Deno.env.get('RESEND_API_KEY')!
-const FROM_EMAIL              = Deno.env.get('FROM_EMAIL') ?? 'analise@hokma.com.br'
+const FROM_EMAIL              = Deno.env.get('FROM_EMAIL') ?? 'analise@hokmatech.com'
+const REPLY_TO_EMAIL          = Deno.env.get('REPLY_TO_EMAIL') ?? 'analise@ustsimo.resend.app'
 const SUPABASE_URL            = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
@@ -73,10 +74,11 @@ Deno.serve(async (req) => {
   const bccList = bcc ? bcc.split(',').map((e: string) => e.trim()).filter(Boolean) : undefined
 
   const resendPayload: Record<string, unknown> = {
-    from: FROM_EMAIL,
-    to:   toList,
-    subject: finalSubject,
-    text: finalBody,
+    from:     FROM_EMAIL,
+    reply_to: REPLY_TO_EMAIL,
+    to:       toList,
+    subject:  finalSubject,
+    text:     finalBody,
   }
   if (ccList?.length)  resendPayload.cc  = ccList
   if (bccList?.length) resendPayload.bcc = bccList

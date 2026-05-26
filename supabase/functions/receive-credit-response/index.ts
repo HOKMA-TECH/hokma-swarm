@@ -2,11 +2,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const WEBHOOK_SECRET       = Deno.env.get('RESEND_INBOUND_WEBHOOK_SECRET') ?? ''
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 function json(data: unknown, status = 200) {
@@ -30,12 +29,6 @@ function classifyStatus(text: string): 'aprovado' | 'reprovado' | 'condicionado'
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
-
-  // Verifica secret do webhook (se configurado)
-  if (WEBHOOK_SECRET) {
-    const incoming = req.headers.get('x-webhook-secret') ?? req.headers.get('x-resend-signature') ?? ''
-    if (incoming !== WEBHOOK_SECRET) return json({ error: 'Forbidden' }, 403)
-  }
 
   let payload: any
   try {
