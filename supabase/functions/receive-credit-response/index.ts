@@ -1,6 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Webhook }      from 'https://esm.sh/svix@1.15.0'
-import { Resend }       from 'https://esm.sh/resend@4'
 
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -57,18 +56,25 @@ Deno.serve(async (req) => {
   const emailId: string    = data?.email_id ?? ''
   const subject: string    = data?.subject ?? ''
   const fromEmail: string  = data?.from ?? ''
-  const attachments: any[] = data?.attachments ?? []
+  const webhookAtts: any[] = data?.attachments ?? []
 
-  const resend = new Resend(RESEND_API_KEY)
-
-  // Busca o email completo via SDK do Resend (resend.emails.received.retrieve)
+  // GET /emails/receiving/{id} — endpoint correto conforme docs do Resend
   let body = ''
-  if (emailId) {
-    const { data: received, error } = await (resend.emails as any).received.retrieve(emailId)
-    if (error) console.log('Received email error:', JSON.stringify(error))
-    else {
-      body = received?.text ?? received?.html ?? ''
-      console.log(`Received email: temCorpo=${!!body} len=${body.length}`)
+  let fullAtts: any[] = []
+  if (emailId && RESEND_API_KEY) {
+    try {
+      const r = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}` },
+      })
+      console.log(`GET /emails/receiving/${emailId} → ${r.status}`)
+      if (r.ok) {
+        const received = await r.json()
+        body     = received?.text ?? received?.html ?? ''
+        fullAtts = received?.attachments ?? []
+        console.log(`Received: temCorpo=${!!body} len=${body.length} atts=${fullAtts.length}`)
+      }
+    } catch (e) {
+      console.log('Received fetch error:', e)
     }
   }
 
@@ -93,35 +99,31 @@ Deno.serve(async (req) => {
     .from('credit_analyses').select('id').eq('lead_id', lead_id).maybeSingle()
   if (!analysis) return json({ error: 'analysis not found' }, 404)
 
-  // Busca conteúdo de cada anexo via resend.attachments.retrieve e faz upload no Storage
+  // Processa anexos: usa os do retrieve (podem ter content) ou do webhook (só metadados)
+  const attsSource = fullAtts.length > 0 ? fullAtts : webhookAtts
   const attachmentsMeta: { filename: string; content_type: string; url?: string }[] = []
-  for (const att of attachments.filter((a: any) => a.filename)) {
+
+  for (const att of attsSource.filter((a: any) => a.filename)) {
     const meta: { filename: string; content_type: string; url?: string } = {
       filename:     att.filename,
       content_type: att.content_type ?? '',
     }
 
-    if (att.id && emailId) {
-      const { data: attData, error: attErr } = await (resend as any).attachments.retrieve({
-        id:      att.id,
-        emailId: emailId,
-      })
-      if (attErr) console.log('Attachment error:', JSON.stringify(attErr))
-      const b64 = attData?.content ?? attData?.data ?? ''
-      if (b64) {
-        try {
-          const filePath = `responses/${lead_id}/${Date.now()}_${att.filename}`
-          const bytes    = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
-          const blob     = new Blob([bytes], { type: att.content_type ?? 'application/octet-stream' })
-          const { error: upErr } = await supabase.storage
-            .from('documentos').upload(filePath, blob, { upsert: true })
-          if (!upErr) {
-            const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(filePath)
-            meta.url = urlData.publicUrl
-            console.log(`Anexo salvo: ${att.filename}`)
-          }
-        } catch (e) { console.log('Upload erro:', e) }
-      }
+    // Se o att tiver content base64 (caso a API retorne), faz upload no Storage
+    const b64 = att.content ?? att.data ?? ''
+    if (b64) {
+      try {
+        const filePath = `responses/${lead_id}/${Date.now()}_${att.filename}`
+        const bytes    = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+        const blob     = new Blob([bytes], { type: att.content_type ?? 'application/octet-stream' })
+        const { error: upErr } = await supabase.storage
+          .from('documentos').upload(filePath, blob, { upsert: true })
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(filePath)
+          meta.url = urlData.publicUrl
+          console.log(`Anexo salvo: ${att.filename}`)
+        }
+      } catch (e) { console.log('Upload erro:', e) }
     }
 
     attachmentsMeta.push(meta)
