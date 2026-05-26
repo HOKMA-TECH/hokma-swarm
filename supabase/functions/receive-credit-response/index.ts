@@ -29,6 +29,22 @@ function classifyStatus(text: string): 'aprovado' | 'reprovado' | 'condicionado'
   return 'condicionado'
 }
 
+async function resendGet(path: string): Promise<any | null> {
+  try {
+    const r = await fetch(`https://api.resend.com${path}`, {
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}` },
+    })
+    if (!r.ok) {
+      console.log(`Resend API ${path} → ${r.status}`)
+      return null
+    }
+    return await r.json()
+  } catch (e) {
+    console.log(`Resend API ${path} erro:`, e)
+    return null
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -52,38 +68,23 @@ Deno.serve(async (req) => {
   let event: any
   try { event = JSON.parse(rawBody) } catch { return json({ error: 'Invalid JSON' }, 400) }
 
-  console.log('RESEND_KEYS:', JSON.stringify(Object.keys(event?.data ?? {})))
-  console.log('RESEND_BODY:', JSON.stringify({
-    hasText: !!event?.data?.text, textLen: (event?.data?.text ?? '').length,
-    hasHtml: !!event?.data?.html, attachCount: (event?.data?.attachments ?? []).length,
-  }))
-
   const data           = event?.data ?? event
+  const emailId: string    = data?.email_id ?? ''
   const subject: string    = data?.subject ?? ''
   const fromEmail: string  = data?.from ?? ''
   const attachments: any[] = data?.attachments ?? []
-  const emailId: string    = data?.email_id ?? ''
 
-  // Tenta múltiplos campos onde o Resend pode enviar o corpo
-  let body: string =
-    data?.text ?? data?.html ?? data?.body ??
-    data?.plain_text ?? data?.text_body ?? data?.html_body ?? ''
-
-  // Fallback: tenta buscar corpo via Resend API GET /emails/{id}
-  if (!body && emailId && RESEND_API_KEY) {
-    try {
-      const r = await fetch(`https://api.resend.com/emails/${emailId}`, {
-        headers: { Authorization: `Bearer ${RESEND_API_KEY}` },
-      })
-      if (r.ok) {
-        const full = await r.json()
-        body = full.text ?? full.html ?? ''
-        if (body) console.log('Corpo obtido via Resend API')
-      }
-    } catch { /* segue sem corpo */ }
+  // Busca o email completo (com corpo) via Receiving Email API
+  let body = ''
+  if (emailId && RESEND_API_KEY) {
+    const received = await resendGet(`/emails/received/${emailId}`)
+    if (received) {
+      body = received.text ?? received.html ?? ''
+      console.log(`Received email API: temCorpo=${!!body} bodyLen=${body.length}`)
+    }
   }
 
-  // Extrai o lead_id do assunto ou corpo
+  // Extrai o lead_id do assunto (e corpo como fallback)
   const match = (subject + ' ' + body).match(
     /(?:\[ref:|ID:)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]?/i
   )
@@ -96,7 +97,7 @@ Deno.serve(async (req) => {
   const bodyTrimmed = body.trim()
   const status      = bodyTrimmed ? classifyStatus(subject + ' ' + bodyTrimmed) : 'recebido'
 
-  console.log(`lead_id: ${lead_id} | status: ${status} | temCorpo: ${!!bodyTrimmed}`)
+  console.log(`lead_id: ${lead_id} | status: ${status}`)
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -104,25 +105,33 @@ Deno.serve(async (req) => {
     .from('credit_analyses').select('id').eq('lead_id', lead_id).maybeSingle()
   if (!analysis) return json({ error: 'analysis not found' }, 404)
 
-  // Processa anexos: se vier com content base64 (inbound custom), faz upload no Storage
+  // Busca conteúdo de cada anexo via Attachments API e faz upload no Storage
   const attachmentsMeta: { filename: string; content_type: string; url?: string }[] = []
   for (const att of attachments.filter((a: any) => a.filename)) {
     const meta: { filename: string; content_type: string; url?: string } = {
       filename:     att.filename,
       content_type: att.content_type ?? '',
     }
-    if (att.content) {
-      try {
-        const filePath = `responses/${lead_id}/${Date.now()}_${att.filename}`
-        const bytes    = Uint8Array.from(atob(att.content), (c) => c.charCodeAt(0))
-        const blob     = new Blob([bytes], { type: att.content_type ?? 'application/octet-stream' })
-        const { error } = await supabase.storage.from('documentos').upload(filePath, blob, { upsert: true })
-        if (!error) {
-          const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(filePath)
-          meta.url = urlData.publicUrl
-        }
-      } catch { /* ignora erro de upload */ }
+
+    if (att.id && emailId && RESEND_API_KEY) {
+      const attData = await resendGet(`/attachments/${att.id}?emailId=${emailId}`)
+      const b64 = attData?.content ?? attData?.data ?? attData?.body ?? ''
+      if (b64) {
+        try {
+          const filePath = `responses/${lead_id}/${Date.now()}_${att.filename}`
+          const bytes    = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+          const blob     = new Blob([bytes], { type: att.content_type ?? 'application/octet-stream' })
+          const { error: upErr } = await supabase.storage
+            .from('documentos').upload(filePath, blob, { upsert: true })
+          if (!upErr) {
+            const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(filePath)
+            meta.url = urlData.publicUrl
+            console.log(`Anexo salvo: ${att.filename} → ${meta.url}`)
+          }
+        } catch (e) { console.log('Upload erro:', e) }
+      }
     }
+
     attachmentsMeta.push(meta)
   }
 
