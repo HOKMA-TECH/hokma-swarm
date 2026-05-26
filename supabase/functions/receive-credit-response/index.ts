@@ -18,6 +18,28 @@ function json(data: unknown, status = 200) {
   })
 }
 
+// Remove a parte citada do email (resposta original do banco aparece no topo, email enviado fica em baixo)
+function stripQuotedReply(text: string): string {
+  const lines = text.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (
+      /^<[^>]+>\s+escreveu/i.test(line)   ||  // PT Gmail: "<email> escreveu"
+      /^Em .{5,100} escreveu:?$/i.test(line) || // PT Gmail: "Em ... escreveu:"
+      /^On .{5,100} wrote:?$/i.test(line)   ||  // EN Gmail: "On ... wrote:"
+      /^-{3,}\s*(Original Message|Mensagem original)/i.test(line) ||
+      /^_{3,}/.test(line)
+    ) {
+      return lines.slice(0, i).join('\n').trim()
+    }
+    // Bloco de citação (linhas começando com >)
+    if (line.startsWith('>') && i > 0) {
+      return lines.slice(0, i).join('\n').trim()
+    }
+  }
+  return text.trim()
+}
+
 function classifyStatus(text: string): 'aprovado' | 'reprovado' | 'condicionado' {
   const lower = text.toLowerCase()
   if (lower.includes('aprovado') || lower.includes('aprovada') || lower.includes('aprovação'))
@@ -87,11 +109,11 @@ Deno.serve(async (req) => {
     return json({ error: 'lead_id not found in email' }, 400)
   }
 
-  const lead_id     = match[1]
-  const bodyTrimmed = body.trim()
-  const status      = bodyTrimmed ? classifyStatus(subject + ' ' + bodyTrimmed) : 'recebido'
+  const lead_id   = match[1]
+  const bodyClean = stripQuotedReply(body).replace(/\[image:\s*[^\]]+\]/gi, '').trim()
+  const status    = bodyClean ? classifyStatus(subject + ' ' + bodyClean) : 'recebido'
 
-  console.log(`lead_id: ${lead_id} | status: ${status}`)
+  console.log(`lead_id: ${lead_id} | status: ${status} | bodyLen: ${bodyClean.length}`)
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -101,29 +123,89 @@ Deno.serve(async (req) => {
 
   // Processa anexos: usa os do retrieve (podem ter content) ou do webhook (só metadados)
   const attsSource = fullAtts.length > 0 ? fullAtts : webhookAtts
-  const attachmentsMeta: { filename: string; content_type: string; url?: string }[] = []
+  const attachmentsMeta: { filename: string; content_type: string; url?: string; inline?: boolean }[] = []
 
   for (const att of attsSource.filter((a: any) => a.filename)) {
-    const meta: { filename: string; content_type: string; url?: string } = {
+    // Log completo para diagnóstico — omite o content base64 para não poluir
+    const debugKeys = Object.keys(att)
+    const debugSnap: Record<string, unknown> = {}
+    for (const k of debugKeys) {
+      debugSnap[k] = k === 'content' ? (att[k] ? `[base64 len=${att[k].length}]` : null) : att[k]
+    }
+    console.log(`ATT "${att.filename}":`, JSON.stringify(debugSnap))
+
+    const contentType = att.content_type ?? att.mimeType ?? att.mime_type ?? ''
+    // Resend usa "content_disposition" (não "disposition")
+    const isInline    = att.content_disposition === 'inline' || att.disposition === 'inline'
+                     || !!att.content_id || !!att.cid
+
+    const meta: { filename: string; content_type: string; url?: string; inline?: boolean } = {
       filename:     att.filename,
-      content_type: att.content_type ?? '',
+      content_type: contentType,
+      ...(isInline ? { inline: true } : {}),
     }
 
-    // Se o att tiver content base64 (caso a API retorne), faz upload no Storage
-    const b64 = att.content ?? att.data ?? ''
+    async function uploadBuf(buf: ArrayBuffer): Promise<string | null> {
+      const filePath = `responses/${lead_id}/${Date.now()}_${att.filename}`
+      const blob     = new Blob([buf], { type: contentType || 'application/octet-stream' })
+      const { error: upErr } = await supabase.storage
+        .from('documentos').upload(filePath, blob, { upsert: true })
+      if (upErr) { console.log('Upload erro:', JSON.stringify(upErr)); return null }
+      return supabase.storage.from('documentos').getPublicUrl(filePath).data.publicUrl
+    }
+
+    function b64toBuffer(b64: string): ArrayBuffer {
+      const bin = atob(b64)
+      const buf = new ArrayBuffer(bin.length)
+      const view = new Uint8Array(buf)
+      for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i)
+      return buf
+    }
+
+    const b64 = att.content ?? att.data ?? att.body ?? ''
     if (b64) {
       try {
-        const filePath = `responses/${lead_id}/${Date.now()}_${att.filename}`
-        const bytes    = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
-        const blob     = new Blob([bytes], { type: att.content_type ?? 'application/octet-stream' })
-        const { error: upErr } = await supabase.storage
-          .from('documentos').upload(filePath, blob, { upsert: true })
-        if (!upErr) {
-          const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(filePath)
-          meta.url = urlData.publicUrl
-          console.log(`Anexo salvo: ${att.filename}`)
+        const url = await uploadBuf(b64toBuffer(b64))
+        if (url) { meta.url = url; console.log(`Anexo salvo (b64): ${att.filename}`) }
+      } catch (e) { console.log('Upload exc:', e) }
+    } else if (att.id && emailId) {
+      // Resend não inclui conteúdo na listagem — tenta endpoint individual
+      try {
+        const attRes = await fetch(
+          `https://api.resend.com/emails/receiving/${emailId}/attachments/${att.id}`,
+          { headers: { Authorization: `Bearer ${RESEND_API_KEY}` } }
+        )
+        console.log(`GET attachment/${att.id} → ${attRes.status}`)
+        if (attRes.ok) {
+          const ct = attRes.headers.get('content-type') ?? ''
+          if (ct.includes('application/json')) {
+            const d = await attRes.json()
+            console.log('Att JSON keys:', JSON.stringify(Object.keys(d ?? {})))
+            const c = d?.content ?? d?.data ?? d?.body ?? ''
+            if (c) {
+              const url = await uploadBuf(b64toBuffer(c))
+              if (url) { meta.url = url; console.log(`Anexo salvo (json): ${att.filename}`) }
+            } else if (d?.url ?? d?.download_url) {
+              meta.url = d?.url ?? d?.download_url
+              console.log(`Anexo URL JSON: ${att.filename} → ${meta.url}`)
+            }
+          } else {
+            // Resposta binária direta
+            const buf = await attRes.arrayBuffer()
+            console.log(`Att binário: ${buf.byteLength} bytes`)
+            if (buf.byteLength > 0) {
+              const url = await uploadBuf(buf)
+              if (url) { meta.url = url; console.log(`Anexo salvo (bin): ${att.filename}`) }
+            }
+          }
         }
-      } catch (e) { console.log('Upload erro:', e) }
+      } catch (e) { console.log('Att endpoint err:', e) }
+
+      if (!meta.url) {
+        const externalUrl = att.download_url ?? att.url ?? null
+        if (externalUrl) { meta.url = externalUrl; console.log(`Anexo URL direta: ${att.filename}`) }
+        else console.log(`Anexo sem conteúdo: ${att.filename}`)
+      }
     }
 
     attachmentsMeta.push(meta)
@@ -134,7 +216,7 @@ Deno.serve(async (req) => {
       status,
       response_subject:     subject || null,
       response_from:        fromEmail || null,
-      response_text:        bodyTrimmed ? bodyTrimmed.slice(0, 4000) : null,
+      response_text:        bodyClean ? bodyClean.slice(0, 4000) : null,
       response_attachments: attachmentsMeta.length > 0 ? attachmentsMeta : null,
       responded_at:         new Date().toISOString(),
     }).eq('lead_id', lead_id),

@@ -368,83 +368,122 @@ function AwaitingResponseModal({ analysis, onClose }: { analysis: CreditAnalysis
   )
 }
 
+/* ── PDF Viewer via blob URL (bypasses Content-Disposition: attachment) ── */
+function PdfViewer({ url }: { url: string }) {
+  const [src, setSrc] = useState<string | null>(null)
+  const [err, setErr] = useState(false)
+
+  useEffect(() => {
+    let blobUrl: string | null = null
+    fetch(url)
+      .then(r => { if (!r.ok) throw new Error('fetch failed'); return r.blob() })
+      .then(blob => { blobUrl = URL.createObjectURL(blob); setSrc(blobUrl) })
+      .catch(() => setErr(true))
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
+  }, [url])
+
+  if (err) return (
+    <div style={{ padding: 40, textAlign: 'center' }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
+      <div style={{ fontSize: 13, color: '#aaa', marginBottom: 16 }}>Não foi possível pré-visualizar.</div>
+      <a href={url} target="_blank" rel="noopener noreferrer"
+        style={{ fontSize: 13, color: '#10b981', textDecoration: 'underline' }}>
+        Abrir em nova aba
+      </a>
+    </div>
+  )
+  if (!src) return (
+    <div style={{ padding: 40, textAlign: 'center', color: '#555', fontSize: 13 }}>Carregando...</div>
+  )
+  return (
+    <embed src={src} type="application/pdf"
+      style={{ width: '80vw', height: '76vh', display: 'block' }} />
+  )
+}
+
 /* ── Attachment Preview Popup ─────────────────────────────── */
 function AttachmentPopup({
   att,
   onClose,
 }: {
-  att: { filename: string; content_type: string; url?: string }
+  att: { filename: string; content_type: string; url?: string; inline?: boolean }
   onClose: () => void
 }) {
   const isImage = att.content_type?.startsWith('image/')
   const isPdf   = att.content_type === 'application/pdf'
+  const ext     = att.content_type?.split('/')[1]?.toUpperCase() ?? ''
 
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: '#000000cc', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ ...modalStyle, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ ...modalStyle, maxWidth: '90vw', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header */}
-        <div style={{ padding: '14px 18px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 16 }}>{isImage ? '🖼' : '📎'}</span>
-            <span style={{ fontSize: 13, color: '#f0f0f0', fontWeight: 600, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <span style={{ fontSize: 15, flexShrink: 0 }}>{isPdf ? '📄' : isImage ? '🖼' : '📎'}</span>
+            <span style={{ fontSize: 13, color: '#f0f0f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {att.filename}
             </span>
-            {att.content_type && (
-              <span style={{ fontSize: 10, color: '#555' }}>{att.content_type.split('/')[1]?.toUpperCase()}</span>
-            )}
+            {ext && <span style={{ fontSize: 10, color: '#555', flexShrink: 0 }}>{ext}</span>}
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+            {att.url && (
+              <a
+                href={att.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 12, color: '#aaa', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, padding: '5px 10px', textDecoration: 'none' }}
+              >
+                Abrir ↗
+              </a>
+            )}
             {att.url && (
               <a
                 href={att.url}
                 download={att.filename}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  fontSize: 12, color: '#10b981', background: '#10b98122', border: '1px solid #10b98144',
-                  borderRadius: 6, padding: '5px 12px', textDecoration: 'none', fontWeight: 600,
-                }}
+                style={{ fontSize: 12, color: '#10b981', background: '#10b98122', border: '1px solid #10b98144', borderRadius: 6, padding: '5px 10px', textDecoration: 'none', fontWeight: 600 }}
               >
-                Baixar
+                Baixar ↓
               </a>
             )}
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: '0 4px' }}>×</button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
+        <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, background: isImage ? '#0a0a0a' : '#111' }}>
           {att.url && isImage ? (
             <img
               src={att.url}
               alt={att.filename}
-              style={{ maxWidth: '80vw', maxHeight: '75vh', objectFit: 'contain', display: 'block' }}
+              style={{ maxWidth: '85vw', maxHeight: '78vh', objectFit: 'contain', display: 'block' }}
             />
           ) : att.url && isPdf ? (
-            <iframe
-              src={att.url}
-              title={att.filename}
-              style={{ width: '80vw', height: '75vh', border: 'none', background: '#fff' }}
-            />
+            <PdfViewer url={att.url} />
           ) : att.url ? (
-            <div style={{ padding: 40, textAlign: 'center' }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>📄</div>
-              <div style={{ fontSize: 14, color: '#f0f0f0', marginBottom: 8 }}>{att.filename}</div>
-              <a href={att.url} download={att.filename} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 13, color: '#10b981', textDecoration: 'underline' }}>
-                Clique para baixar
-              </a>
+            <div style={{ padding: 48, textAlign: 'center' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>📎</div>
+              <div style={{ fontSize: 14, color: '#f0f0f0', marginBottom: 20 }}>{att.filename}</div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <a href={att.url} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: 13, color: '#aaa', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 8, padding: '9px 18px', textDecoration: 'none' }}>
+                  Abrir ↗
+                </a>
+                <a href={att.url} download={att.filename}
+                  style={{ fontSize: 13, color: '#10b981', background: '#10b98122', border: '1px solid #10b98144', borderRadius: 8, padding: '9px 18px', textDecoration: 'none', fontWeight: 600 }}>
+                  Baixar ↓
+                </a>
+              </div>
             </div>
           ) : (
             <div style={{ padding: 40, textAlign: 'center' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>{isImage ? '🖼' : '📎'}</div>
               <div style={{ fontSize: 14, color: '#f0f0f0', marginBottom: 6 }}>{att.filename}</div>
               <div style={{ fontSize: 12, color: '#555', lineHeight: 1.6, maxWidth: 280 }}>
-                Arquivo recebido pelo banco.<br />
-                Preview disponível após configurar inbound no domínio.
+                Anexo recebido pelo banco.<br />
+                O conteúdo do arquivo não é disponibilizado pela API do Resend.
               </div>
             </div>
           )}
@@ -456,7 +495,7 @@ function AttachmentPopup({
 
 /* ── Result Modal (Step 4) ────────────────────────────────── */
 function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; onClose: () => void }) {
-  const [previewAtt, setPreviewAtt] = useState<{ filename: string; content_type: string; url?: string } | null>(null)
+  const [previewAtt, setPreviewAtt] = useState<{ filename: string; content_type: string; url?: string; inline?: boolean } | null>(null)
 
   const hasResult = analysis != null && ['aprovado', 'reprovado', 'condicionado', 'recebido'].includes(analysis.status)
   const statusColor = hasResult ? (STATUS_COLORS[analysis!.status] ?? '#555') : '#555'
@@ -525,19 +564,42 @@ function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; o
                   </div>
                 </div>
 
-                {/* Corpo do email */}
-                {analysis!.response_text ? (
-                  <div style={{ background: '#161616', border: '1px solid #222', borderRadius: 10, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 11, color: '#555', marginBottom: 10 }}>Mensagem</div>
-                    <div style={{ fontSize: 13, color: '#f0f0f0', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                      {analysis!.response_text}
+                {/* Corpo do email + imagens inline */}
+                {(() => {
+                  const inlineImgs = (analysis!.response_attachments ?? []).filter(
+                    a => a.inline && a.url && a.content_type?.startsWith('image/')
+                  )
+                  return (
+                    <div style={{ background: '#161616', border: '1px solid #222', borderRadius: 10, padding: '14px 16px' }}>
+                      <div style={{ fontSize: 11, color: '#555', marginBottom: 10 }}>Mensagem</div>
+                      {analysis!.response_text ? (
+                        <div style={{ fontSize: 13, color: '#f0f0f0', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                          {analysis!.response_text}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: '#555', fontStyle: 'italic' }}>
+                          Sem texto no corpo da mensagem.
+                        </div>
+                      )}
+                      {inlineImgs.length > 0 && (
+                        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {inlineImgs.map((img, i) => (
+                            <img
+                              key={i}
+                              src={img.url}
+                              alt={img.filename}
+                              onClick={() => setPreviewAtt(img)}
+                              style={{
+                                maxWidth: '100%', borderRadius: 8, cursor: 'zoom-in',
+                                border: '1px solid #2a2a2a', display: 'block',
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 12, color: '#555', fontStyle: 'italic', padding: '4px 0' }}>
-                    Sem texto no corpo da mensagem.
-                  </div>
-                )}
+                  )
+                })()}
 
                 {/* Anexos clicáveis */}
                 {analysis!.response_attachments && analysis!.response_attachments.length > 0 && (
@@ -551,7 +613,7 @@ function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; o
                         return (
                           <button
                             key={i}
-                            onClick={() => setPreviewAtt(att)}
+                            onClick={() => att.url ? setPreviewAtt(att) : setPreviewAtt(att)}
                             style={{
                               display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
                               background: '#161616', border: '1px solid #2a2a2a', borderRadius: 8, padding: '9px 12px',
@@ -569,7 +631,9 @@ function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; o
                                 {att.content_type.split('/')[1]?.toUpperCase()}
                               </span>
                             )}
-                            <span style={{ fontSize: 11, color: '#333', flexShrink: 0 }}>›</span>
+                            <span style={{ fontSize: 11, color: att.url ? '#10b981' : '#333', flexShrink: 0 }}>
+                              {att.url ? '↗' : '›'}
+                            </span>
                           </button>
                         )
                       })}

@@ -97,7 +97,7 @@ export interface CreditAnalysis {
   response_text: string | null
   response_subject: string | null
   response_from: string | null
-  response_attachments: { filename: string; content_type: string; url?: string }[] | null
+  response_attachments: { filename: string; content_type: string; url?: string; inline?: boolean }[] | null
   created_at: string
 }
 
