@@ -4,11 +4,16 @@ import { LeadsLineChart } from '@/components/relatorios/LeadsLineChart'
 import { ConversionFunnel } from '@/components/relatorios/ConversionFunnel'
 import { OrigemDonut } from '@/components/relatorios/OrigemDonut'
 import { PrintButton } from '@/components/relatorios/PrintButton'
+import { ClosingEvolutionChart } from '@/components/relatorios/ClosingEvolutionChart'
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector'
+import { StageDonut } from '@/components/dashboard/StageDonut'
+import { RegiaoDonut } from '@/components/dashboard/RegiaoDonut'
 import {
-  format, startOfMonth, subMonths,
+  format, startOfMonth, subMonths, startOfWeek,
+  addDays, addWeeks, addMonths,
   eachDayOfInterval, differenceInDays,
 } from 'date-fns'
+import type { Stage } from '@/types/database'
 
 type PeriodKey = 'este_mes' | 'trimestre' | 'semestre' | 'personalizado'
 
@@ -56,29 +61,17 @@ export default async function RelatoriosPage({
   const current = getPeriodRange(period, today, params.from, params.to)
   const prev = getPrevPeriodRange(current)
 
-  const [{ data: rawLeads }, { data: rawPrev }, { data: vgvData }, { data: prevVgvData }] = await Promise.all([
+  const [{ data: rawLeads }, { data: rawPrev }] = await Promise.all([
     supabase
       .from('leads')
-      .select('stage, campaign_source, loss_reason, created_at, updated_at')
+      .select('stage, campaign_source, loss_reason, created_at, updated_at, vgv, regiao_interesse')
       .gte('created_at', current.from.toISOString())
       .lte('created_at', current.to.toISOString()),
     supabase
       .from('leads')
-      .select('stage, campaign_source')
+      .select('stage, campaign_source, vgv')
       .gte('created_at', prev.from.toISOString())
       .lte('created_at', prev.to.toISOString()),
-    supabase
-      .from('leads')
-      .select('vgv')
-      .eq('stage', 'concluido')
-      .gte('updated_at', current.from.toISOString())
-      .lte('updated_at', current.to.toISOString()),
-    supabase
-      .from('leads')
-      .select('vgv')
-      .eq('stage', 'concluido')
-      .gte('updated_at', prev.from.toISOString())
-      .lte('updated_at', prev.to.toISOString()),
   ])
 
   const leads = rawLeads ?? []
@@ -103,8 +96,8 @@ export default async function RelatoriosPage({
     : 0
 
   // VGV
-  const vgvTotal     = (vgvData     ?? []).reduce((s, r: any) => s + (r.vgv ?? 0), 0)
-  const prevVgvTotal = (prevVgvData ?? []).reduce((s, r: any) => s + (r.vgv ?? 0), 0)
+  const vgvTotal     = leads.filter(l => l.stage === 'concluido').reduce((s, l: any) => s + (l.vgv ?? 0), 0)
+  const prevVgvTotal = prevLeads.filter(l => l.stage === 'concluido').reduce((s, l: any) => s + (l.vgv ?? 0), 0)
   const vgvFormatted = vgvTotal >= 1_000_000
     ? 'R$ ' + (vgvTotal / 1_000_000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'M'
     : vgvTotal >= 1_000
@@ -119,6 +112,78 @@ export default async function RelatoriosPage({
     { label: 'Taxa de conversão',value: `${taxa.toFixed(1)}%`, ...calcDelta(taxa, prevTaxa) },
     { label: 'Tempo médio',      value: avgDays > 0 ? `${avgDays}d` : '—', delta: '—', up: true },
   ]
+
+  // ── Period label ─────────────────────────────────────────────────────
+  const periodLabels: Record<PeriodKey, string> = {
+    este_mes:      `${format(current.from, 'dd/MM')} – ${format(current.to, 'dd/MM/yyyy')}`,
+    trimestre:     'Últimos 3 meses',
+    semestre:      'Últimos 6 meses',
+    personalizado: params.from && params.to
+      ? `${format(new Date(params.from), 'dd/MM/yy')} → ${format(new Date(params.to), 'dd/MM/yy')}`
+      : 'Personalizado',
+  }
+  const periodLabel = periodLabels[period]
+
+  // ── Stage donut ───────────────────────────────────────────────────────
+  const stageCounts = leads.reduce<Record<string, number>>((acc, l) => {
+    acc[l.stage] = (acc[l.stage] ?? 0) + 1; return acc
+  }, {})
+  const stageChartData = Object.entries(stageCounts).map(([stage, count]) => ({ stage: stage as Stage, count }))
+
+  // ── Região donut ──────────────────────────────────────────────────────
+  const regiaoCounts = leads.reduce<Record<string, number>>((acc, l: any) => {
+    const r = l.regiao_interesse || 'Não informado'; acc[r] = (acc[r] ?? 0) + 1; return acc
+  }, {})
+  const regiaoData = Object.entries(regiaoCounts)
+    .map(([regiao, count]) => ({ regiao, count }))
+    .sort((a, b) => b.count - a.count).slice(0, 6)
+
+  // ── Closing evolution chart ───────────────────────────────────────────
+  const concludedLeads = leads.filter((l: any) => l.stage === 'concluido' && l.updated_at)
+  const diffDays = Math.ceil((current.to.getTime() - current.from.getTime()) / (1000 * 60 * 60 * 24)) || 1
+  let closingData: { date: string; count: number; vgv: number }[]
+  let closingGranularity: string
+
+  if (diffDays <= 45) {
+    closingGranularity = 'por dia'
+    const map = concludedLeads.reduce<Record<string, { count: number; vgv: number }>>((acc, l: any) => {
+      const d = format(new Date(l.updated_at), 'dd/MM')
+      if (!acc[d]) acc[d] = { count: 0, vgv: 0 }
+      acc[d].count++; acc[d].vgv += l.vgv ?? 0; return acc
+    }, {})
+    closingData = Array.from({ length: diffDays }, (_, i) => {
+      const d = format(addDays(current.from, i), 'dd/MM')
+      return { date: d, count: map[d]?.count ?? 0, vgv: map[d]?.vgv ?? 0 }
+    })
+  } else if (diffDays <= 120) {
+    closingGranularity = 'por semana'
+    const map = concludedLeads.reduce<Record<string, { count: number; vgv: number }>>((acc, l: any) => {
+      const k = format(startOfWeek(new Date(l.updated_at), { weekStartsOn: 1 }), 'dd/MM')
+      if (!acc[k]) acc[k] = { count: 0, vgv: 0 }
+      acc[k].count++; acc[k].vgv += l.vgv ?? 0; return acc
+    }, {})
+    closingData = []
+    let cursor = startOfWeek(current.from, { weekStartsOn: 1 })
+    while (cursor <= current.to) {
+      const k = format(cursor, 'dd/MM')
+      closingData.push({ date: k, count: map[k]?.count ?? 0, vgv: map[k]?.vgv ?? 0 })
+      cursor = addWeeks(cursor, 1)
+    }
+  } else {
+    closingGranularity = 'por mês'
+    const map = concludedLeads.reduce<Record<string, { count: number; vgv: number }>>((acc, l: any) => {
+      const k = format(new Date(l.updated_at), 'MM/yy')
+      if (!acc[k]) acc[k] = { count: 0, vgv: 0 }
+      acc[k].count++; acc[k].vgv += l.vgv ?? 0; return acc
+    }, {})
+    closingData = []
+    let cursor = new Date(current.from.getFullYear(), current.from.getMonth(), 1)
+    while (cursor <= current.to) {
+      const k = format(cursor, 'MM/yy')
+      closingData.push({ date: k, count: map[k]?.count ?? 0, vgv: map[k]?.vgv ?? 0 })
+      cursor = addMonths(cursor, 1)
+    }
+  }
 
   // ── Line chart ───────────────────────────────────────────────────────
   const days = eachDayOfInterval({ start: current.from, end: current.to })
@@ -203,6 +268,17 @@ export default async function RelatoriosPage({
           <LeadsLineChart data={lineData} />
           <ConversionFunnel stages={funnelStages} />
           <OrigemDonut data={originData} />
+        </div>
+
+        {/* Pipeline / Região / Evolução Fechamentos */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 14 }}>
+          <StageDonut data={stageChartData} />
+          <RegiaoDonut data={regiaoData} />
+          <ClosingEvolutionChart
+            data={closingData}
+            periodLabel={periodLabel}
+            granularity={closingGranularity}
+          />
         </div>
 
         {/* Performance por campanha */}
