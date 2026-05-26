@@ -272,8 +272,7 @@ export function DocumentConverterModal({ doc, onClose, onConverted }: Props) {
         await animProg(15, 35, 400)
 
         const pdfjsLib = await import('pdfjs-dist')
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://unpkg.com/pdfjs-dist@' + pdfjsLib.version + '/build/pdf.worker.min.js'
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
         const pdfDoc = await pdfjsLib.getDocument({ data: pdfBytes }).promise
         const page = await pdfDoc.getPage(1)
