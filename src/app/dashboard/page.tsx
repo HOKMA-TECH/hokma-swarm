@@ -22,9 +22,8 @@ export default async function DashboardPage() {
   const [
     { count: leadsHoje },
     { count: emAtendimento },
-    { count: fechamentos },
+    { count: concluidos },
     { data: vgvData },
-    { count: leadsMes },
     { data: stageData },
     { data: dailyRaw },
     { data: recentLeads },
@@ -36,15 +35,12 @@ export default async function DashboardPage() {
     // Em atendimento: todos exceto concluido e desistencia
     supabase.from('leads').select('*', { count: 'exact', head: true })
       .not('stage', 'in', '("concluido","desistencia")'),
-    // Fechamentos do mês: leads que chegaram a concluido neste mês (updated_at)
+    // Concluídos no mês: pastas que estão em concluido com updated_at neste mês
     supabase.from('leads').select('*', { count: 'exact', head: true })
       .eq('stage', 'concluido').gte('updated_at', `${monthStart}T00:00:00`),
-    // VGV total dos fechamentos do mês
+    // VGV total dos concluídos do mês
     supabase.from('leads').select('vgv')
       .eq('stage', 'concluido').gte('updated_at', `${monthStart}T00:00:00`),
-    // Total de leads criados no mês (denominador da taxa de conversão)
-    supabase.from('leads').select('*', { count: 'exact', head: true })
-      .gte('created_at', `${monthStart}T00:00:00`),
     // Dados para gráficos (stage + regiao_interesse dos últimos 30 dias)
     supabase.from('leads').select('stage, regiao_interesse').gte('created_at', thirtyDaysAgo),
     supabase.from('leads').select('created_at').gte('created_at', thirtyDaysAgo),
@@ -85,15 +81,13 @@ export default async function DashboardPage() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 6)
 
-  // VGV total dos fechamentos
+  // VGV total dos concluídos do mês
   const vgvTotal = (vgvData ?? []).reduce((sum, row: any) => sum + (row.vgv ?? 0), 0)
-  const vgvStr = vgvTotal > 0
-    ? 'VGV: R$ ' + vgvTotal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-    : undefined
-
-  // Taxa de conversão: fechamentos do mês / leads criados no mês
-  const totalMes = leadsMes ?? 0
-  const taxaConversao = totalMes > 0 ? ((fechamentos ?? 0) / totalMes * 100).toFixed(1) : '0.0'
+  const vgvFormatted = vgvTotal >= 1_000_000
+    ? 'R$ ' + (vgvTotal / 1_000_000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'M'
+    : vgvTotal >= 1_000
+    ? 'R$ ' + (vgvTotal / 1_000).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + 'k'
+    : 'R$ ' + vgvTotal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -108,10 +102,10 @@ export default async function DashboardPage() {
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-        <KpiCard label="Leads Hoje" value={leadsHoje ?? 0} />
+        <KpiCard label="Leads" value={leadsHoje ?? 0} sub="hoje" />
         <KpiCard label="Em Atendimento" value={emAtendimento ?? 0} />
-        <KpiCard label="Fechamentos (mês)" value={fechamentos ?? 0} sub={vgvStr} highlight />
-        <KpiCard label="Taxa de Conversão" value={`${taxaConversao}%`} />
+        <KpiCard label="Concluídos" value={concluidos ?? 0} sub="este mês" />
+        <KpiCard label="Fechamento" value={vgvFormatted} sub={`${concluidos ?? 0} pasta${(concluidos ?? 0) !== 1 ? 's' : ''}`} highlight />
       </div>
 
       {/* Charts row */}
