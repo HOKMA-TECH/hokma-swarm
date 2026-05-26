@@ -4,9 +4,11 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 
 interface LeadsBarChartProps {
   data: { date: string; count: number }[]
+  periodLabel?: string
+  granularity?: string
 }
 
-export function LeadsBarChart({ data }: LeadsBarChartProps) {
+export function LeadsBarChart({ data, periodLabel, granularity }: LeadsBarChartProps) {
   return (
     <div
       className="card-hover anim-fade-up"
@@ -15,8 +17,8 @@ export function LeadsBarChart({ data }: LeadsBarChartProps) {
         animationDelay: '80ms',
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, color: '#f0f0f0' }}>Leads por dia</div>
-      <div style={{ fontSize: 11, color: '#555', marginBottom: 16 }}>Últimos 30 dias</div>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, color: '#f0f0f0' }}>Leads {granularity ?? 'por dia'}</div>
+      <div style={{ fontSize: 11, color: '#555', marginBottom: 16 }}>{periodLabel ?? 'Este mês'}</div>
       <ResponsiveContainer width="100%" height={140}>
         <BarChart data={data} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#555' }} axisLine={false} tickLine={false} />
