@@ -12,7 +12,6 @@ const NAV_ITEMS = [
   { href: '/relatorios',        label: 'Relatórios',        icon: 'chart' },
   { href: '/apuracao-de-renda', label: 'Apuração de Renda', icon: 'sun' },
   { href: '/portais',           label: 'Portais',           icon: 'globe' },
-  { href: '/configuracoes',    label: 'Configurações',     icon: 'gear' },
 ]
 
 function NavIcon({ type }: { type: string }) {
@@ -112,18 +111,48 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div style={{ padding: '14px 20px', borderTop: '1px solid #1a1a1a' }}>
-        <button
-          onClick={handleLogout}
-          className="btn-ghost"
-          style={{
-            background: 'none', border: '1px solid transparent', borderRadius: 6,
-            color: '#444', fontSize: 12, cursor: 'pointer', padding: '5px 8px',
-            width: '100%', textAlign: 'left' as const,
-          }}
-        >
-          ← Sair
-        </button>
+      <div style={{ borderTop: '1px solid #1a1a1a' }}>
+        {(() => {
+          const isActive = pathname === '/configuracoes' || pathname.startsWith('/configuracoes/')
+          return (
+            <Link
+              href="/configuracoes"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 20px', fontSize: 13, textDecoration: 'none',
+                color: isActive ? '#10b981' : '#666',
+                background: isActive ? '#10b98122' : 'transparent',
+                borderRight: `2px solid ${isActive ? '#10b981' : 'transparent'}`,
+                position: 'relative',
+              }}
+            >
+              <span style={{ color: isActive ? '#10b981' : 'inherit' }}>
+                <NavIcon type="gear" />
+              </span>
+              <span style={{ fontWeight: isActive ? 600 : 400 }}>Configurações</span>
+              {isActive && (
+                <span style={{
+                  position: 'absolute', right: 14,
+                  width: 5, height: 5, borderRadius: '50%',
+                  background: '#10b981', boxShadow: '0 0 6px #10b981',
+                }} />
+              )}
+            </Link>
+          )
+        })()}
+        <div style={{ padding: '10px 20px' }}>
+          <button
+            onClick={handleLogout}
+            className="btn-ghost"
+            style={{
+              background: 'none', border: '1px solid transparent', borderRadius: 6,
+              color: '#444', fontSize: 12, cursor: 'pointer', padding: '5px 8px',
+              width: '100%', textAlign: 'left' as const,
+            }}
+          >
+            ← Sair
+          </button>
+        </div>
       </div>
     </aside>
   )
