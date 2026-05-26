@@ -368,35 +368,27 @@ function AwaitingResponseModal({ analysis, onClose }: { analysis: CreditAnalysis
   )
 }
 
-/* ── PDF Viewer via blob URL (bypasses Content-Disposition: attachment) ── */
+/* ── PDF Viewer: tenta blob URL; se fetch falhar (ex: CORS), usa URL direta ── */
 function PdfViewer({ url }: { url: string }) {
-  const [src, setSrc] = useState<string | null>(null)
-  const [err, setErr] = useState(false)
+  const [embedSrc, setEmbedSrc] = useState<string | null>(null)
 
   useEffect(() => {
     let blobUrl: string | null = null
     fetch(url)
-      .then(r => { if (!r.ok) throw new Error('fetch failed'); return r.blob() })
-      .then(blob => { blobUrl = URL.createObjectURL(blob); setSrc(blobUrl) })
-      .catch(() => setErr(true))
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob() })
+      .then(blob => { blobUrl = URL.createObjectURL(blob); setEmbedSrc(blobUrl) })
+      .catch(e => {
+        console.warn('PDF blob fetch failed, using direct URL:', e.message)
+        setEmbedSrc(url)
+      })
     return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
   }, [url])
 
-  if (err) return (
-    <div style={{ padding: 40, textAlign: 'center' }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
-      <div style={{ fontSize: 13, color: '#aaa', marginBottom: 16 }}>Não foi possível pré-visualizar.</div>
-      <a href={url} download
-        style={{ fontSize: 13, color: '#10b981', background: '#10b98122', border: '1px solid #10b98144', borderRadius: 8, padding: '9px 18px', textDecoration: 'none', fontWeight: 600 }}>
-        Baixar ↓
-      </a>
-    </div>
-  )
-  if (!src) return (
+  if (!embedSrc) return (
     <div style={{ padding: 40, textAlign: 'center', color: '#555', fontSize: 13 }}>Carregando...</div>
   )
   return (
-    <embed src={src} type="application/pdf"
+    <embed src={embedSrc} type="application/pdf"
       style={{ width: '80vw', height: '76vh', display: 'block' }} />
   )
 }
