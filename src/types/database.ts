@@ -10,7 +10,7 @@
   | 'repasse'
   | 'concluido'
 
-export type EventType = 'visita' | 'call' | 'reuniao'
+export type EventType = 'atendimento' | 'visita' | 'agencia'
 export type CreatedBy = 'corretor' | 'agent'
 export type ConversationRole = 'lead' | 'agent'
 export type CreditStatus = 'draft' | 'enviado' | 'aprovado' | 'reprovado' | 'condicionado'

@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { format, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-const TYPE_COLORS: Record<string, string> = { visita: '#10b981', call: '#42a5f5', reuniao: '#ab47bc' }
-const TYPE_LABELS: Record<string, string> = { visita: 'Visita', call: 'Ligação', reuniao: 'Reunião' }
+const TYPE_COLORS: Record<string, string> = { atendimento: '#42a5f5', visita: '#10b981', agencia: '#ffab40' }
+const TYPE_LABELS: Record<string, string> = { atendimento: 'Atendimento', visita: 'Visita', agencia: 'Agência' }
 const STATUS_COLOR: Record<string, string> = { realizado: '#10b981', cancelado: '#ef5350', pendente: '#ffab40' }
 
 interface Apt {

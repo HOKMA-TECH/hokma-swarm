@@ -5,12 +5,13 @@ import { useState } from 'react'
 interface KpiCardProps {
   label: string
   value: string | number
+  sub?: string
   delta?: string
   deltaUp?: boolean
   highlight?: boolean
 }
 
-export function KpiCard({ label, value, delta, deltaUp, highlight }: KpiCardProps) {
+export function KpiCard({ label, value, sub, delta, deltaUp, highlight }: KpiCardProps) {
   const [hovered, setHovered] = useState(false)
 
   return (
@@ -46,6 +47,11 @@ export function KpiCard({ label, value, delta, deltaUp, highlight }: KpiCardProp
       }}>
         {value}
       </span>
+      {sub && (
+        <span style={{ fontSize: 11, color: highlight ? '#6ee7b7aa' : '#555', fontWeight: 500 }}>
+          {sub}
+        </span>
+      )}
       {delta && (
         <span style={{ fontSize: 11, color: deltaUp ? '#10b981' : '#ef5350', display: 'flex', alignItems: 'center', gap: 4 }}>
           {deltaUp ? '▲' : '▼'} {delta}

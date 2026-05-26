@@ -5,6 +5,7 @@ import { StageDonut } from '@/components/dashboard/StageDonut'
 import { RegiaoDonut } from '@/components/dashboard/RegiaoDonut'
 import { RecentLeads } from '@/components/dashboard/RecentLeads'
 import { AgendaWeekDropdown } from '@/components/dashboard/AgendaWeekDropdown'
+import { NotificationBell } from '@/components/dashboard/NotificationBell'
 import { format, subDays, startOfWeek, endOfWeek } from 'date-fns'
 import type { Stage } from '@/types/database'
 
@@ -22,18 +23,30 @@ export default async function DashboardPage() {
     { count: leadsHoje },
     { count: emAtendimento },
     { count: fechamentos },
+    { data: vgvData },
+    { count: leadsMes },
     { data: stageData },
     { data: dailyRaw },
     { data: recentLeads },
     { data: weekAppointments },
   ] = await Promise.all([
+    // Leads criados hoje
     supabase.from('leads').select('*', { count: 'exact', head: true })
       .gte('created_at', `${todayStr}T00:00:00`),
+    // Em atendimento: todos exceto concluido e desistencia
     supabase.from('leads').select('*', { count: 'exact', head: true })
       .not('stage', 'in', '("concluido","desistencia")'),
+    // Fechamentos do mês: leads que chegaram a concluido neste mês (updated_at)
     supabase.from('leads').select('*', { count: 'exact', head: true })
-      .eq('stage', 'concluido').gte('created_at', `${monthStart}T00:00:00`),
-    supabase.from('leads').select('stage, tipo_imovel').gte('created_at', thirtyDaysAgo),
+      .eq('stage', 'concluido').gte('updated_at', `${monthStart}T00:00:00`),
+    // VGV total dos fechamentos do mês
+    supabase.from('leads').select('vgv')
+      .eq('stage', 'concluido').gte('updated_at', `${monthStart}T00:00:00`),
+    // Total de leads criados no mês (denominador da taxa de conversão)
+    supabase.from('leads').select('*', { count: 'exact', head: true })
+      .gte('created_at', `${monthStart}T00:00:00`),
+    // Dados para gráficos (stage + regiao_interesse dos últimos 30 dias)
+    supabase.from('leads').select('stage, regiao_interesse').gte('created_at', thirtyDaysAgo),
     supabase.from('leads').select('created_at').gte('created_at', thirtyDaysAgo),
     supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(6),
     supabase.from('appointments')
@@ -61,33 +74,43 @@ export default async function DashboardPage() {
     return { date: d, count: dailyCounts[d] ?? 0 }
   })
 
-  // Região de interesse (tipo_imovel) donut
-  const tipoCounts = (stageData ?? []).reduce<Record<string, number>>((acc, { tipo_imovel }: any) => {
-    const t = tipo_imovel || 'Não informado'
-    acc[t] = (acc[t] ?? 0) + 1
+  // Região de interesse donut — usa o campo regiao_interesse
+  const regiaoCounts = (stageData ?? []).reduce<Record<string, number>>((acc, row: any) => {
+    const r = row.regiao_interesse || 'Não informado'
+    acc[r] = (acc[r] ?? 0) + 1
     return acc
   }, {})
-  const regiaoData = Object.entries(tipoCounts)
-    .map(([tipo, count]) => ({ tipo, count }))
+  const regiaoData = Object.entries(regiaoCounts)
+    .map(([regiao, count]) => ({ regiao, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 6)
 
-  const totalLeads = stageData?.length ?? 1
-  const taxaConversao = totalLeads > 0 ? ((fechamentos ?? 0) / totalLeads * 100).toFixed(1) : '0.0'
+  // VGV total dos fechamentos
+  const vgvTotal = (vgvData ?? []).reduce((sum, row: any) => sum + (row.vgv ?? 0), 0)
+  const vgvStr = vgvTotal > 0
+    ? 'VGV: R$ ' + vgvTotal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+    : undefined
+
+  // Taxa de conversão: fechamentos do mês / leads criados no mês
+  const totalMes = leadsMes ?? 0
+  const taxaConversao = totalMes > 0 ? ((fechamentos ?? 0) / totalMes * 100).toFixed(1) : '0.0'
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 40 }}>
         <h1 style={{ fontSize: 16, fontWeight: 600 }}>Dashboard</h1>
-        <AgendaWeekDropdown appointments={(weekAppointments ?? []) as any} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <AgendaWeekDropdown appointments={(weekAppointments ?? []) as any} />
+          <NotificationBell />
+        </div>
       </div>
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
         <KpiCard label="Leads Hoje" value={leadsHoje ?? 0} />
         <KpiCard label="Em Atendimento" value={emAtendimento ?? 0} />
-        <KpiCard label="Fechamentos (mês)" value={fechamentos ?? 0} highlight />
+        <KpiCard label="Fechamentos (mês)" value={fechamentos ?? 0} sub={vgvStr} highlight />
         <KpiCard label="Taxa de Conversão" value={`${taxaConversao}%`} />
       </div>
 

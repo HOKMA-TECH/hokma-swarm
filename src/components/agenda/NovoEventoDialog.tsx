@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -8,21 +8,36 @@ interface Lead { id: string; nome: string }
 
 interface Props {
   leads: Lead[]
+  initialDate?: Date
+  initialHour?: number
   onClose: () => void
   onCreated: () => void
 }
 
-export function NovoEventoDialog({ leads, onClose, onCreated }: Props) {
-  const [type, setType] = useState<'visita' | 'call' | 'reuniao'>('visita')
+const TYPE_CONFIG = [
+  { key: 'atendimento' as const, label: 'Atendimento', icon: '📋' },
+  { key: 'visita'      as const, label: 'Visita',      icon: '🏠' },
+  { key: 'agencia'     as const, label: 'Agência',     icon: '🏢' },
+]
+
+export function NovoEventoDialog({ leads, initialDate, initialHour, onClose, onCreated }: Props) {
+  const baseDate = initialDate ?? new Date()
+  const baseHour = initialHour ?? 10
+
+  const [type, setType] = useState<'atendimento' | 'visita' | 'agencia'>('atendimento')
   const [title, setTitle] = useState('')
   const [leadId, setLeadId] = useState('')
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const [startTime, setStartTime] = useState('10:00')
-  const [endTime, setEndTime] = useState('11:00')
+  const [date, setDate] = useState(format(baseDate, 'yyyy-MM-dd'))
+  const [startTime, setStartTime] = useState(`${String(baseHour).padStart(2, '0')}:00`)
+  const [endTime, setEndTime] = useState(`${String(baseHour + 1).padStart(2, '0')}:00`)
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
+
+  function toISO(d: string, t: string) {
+    return new Date(`${d}T${t}:00`).toISOString()
+  }
 
   async function handleSave() {
     if (!title || !leadId) return
@@ -31,8 +46,8 @@ export function NovoEventoDialog({ leads, onClose, onCreated }: Props) {
       lead_id: leadId,
       type,
       title,
-      start_at: `${date}T${startTime}:00`,
-      end_at: `${date}T${endTime}:00`,
+      start_at: toISO(date, startTime),
+      end_at: toISO(date, endTime),
       location: location || null,
       notes: notes || null,
       created_by: 'corretor',
@@ -64,14 +79,14 @@ export function NovoEventoDialog({ leads, onClose, onCreated }: Props) {
         <div>
           <span style={label}>Tipo</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            {(['visita', 'call', 'reuniao'] as const).map(t => (
-              <button key={t} onClick={() => setType(t)} style={{
+            {TYPE_CONFIG.map(t => (
+              <button key={t.key} onClick={() => setType(t.key)} style={{
                 flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                background: type === t ? '#10b98122' : '#161616',
-                border: `1px solid ${type === t ? '#10b981' : '#222'}`,
-                color: type === t ? '#10b981' : '#999',
+                background: type === t.key ? '#10b98122' : '#161616',
+                border: `1px solid ${type === t.key ? '#10b981' : '#222'}`,
+                color: type === t.key ? '#10b981' : '#999',
               }}>
-                {t === 'visita' ? '🏠 Visita' : t === 'call' ? '📞 Call' : '🤝 Reunião'}
+                {t.icon} {t.label}
               </button>
             ))}
           </div>
@@ -79,7 +94,7 @@ export function NovoEventoDialog({ leads, onClose, onCreated }: Props) {
 
         <div>
           <label style={label}>Título *</label>
-          <input style={input} value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Visita ao Jardim Olímpia" />
+          <input style={input} value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Visita ao empreendimento" />
         </div>
 
         <div>

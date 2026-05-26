@@ -1,21 +1,34 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isSameMonth, addMonths, subMonths } from 'date-fns'
+import {
+  format, startOfMonth, endOfMonth, eachDayOfInterval, getDay,
+  isSameDay, isSameMonth, addMonths, subMonths, isAfter, startOfDay,
+} from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Appointment } from '@/types/database'
 
-const TYPE_COLORS: Record<string, string> = { visita: '#10b981', call: '#42a5f5', reuniao: '#ab47bc' }
+const TYPE_COLORS: Record<string, string> = { atendimento: '#42a5f5', visita: '#10b981', agencia: '#ffab40' }
+const TYPE_LABELS: Record<string, string> = { atendimento: 'Atendimento', visita: 'Visita', agencia: 'Agência' }
+
+const FILTERS = [
+  { key: 'atendimento', label: 'Atendimento', color: '#42a5f5' },
+  { key: 'visita',      label: 'Visita',      color: '#10b981' },
+  { key: 'agencia',     label: 'Agência',     color: '#ffab40' },
+]
+
+type AppointmentWithLead = Appointment & { lead?: { nome: string; telefone: string } }
 
 interface Props {
-  appointments: Appointment[]
+  appointments: AppointmentWithLead[]
   selectedDate: Date
   onDateSelect: (d: Date) => void
   activeFilters: string[]
   onFilterChange: (filters: string[]) => void
+  onAppointmentClick?: (apt: AppointmentWithLead) => void
 }
 
-export function AgendaMiniCalendar({ appointments, selectedDate, onDateSelect, activeFilters, onFilterChange }: Props) {
+export function AgendaMiniCalendar({ appointments, selectedDate, onDateSelect, activeFilters, onFilterChange, onAppointmentClick }: Props) {
   const [viewMonth, setViewMonth] = useState(new Date())
 
   const days = eachDayOfInterval({ start: startOfMonth(viewMonth), end: endOfMonth(viewMonth) })
@@ -29,8 +42,15 @@ export function AgendaMiniCalendar({ appointments, selectedDate, onDateSelect, a
     return appointments.filter(a => isSameDay(new Date(a.start_at), day))
   }
 
+  const today = startOfDay(new Date())
+  const upcoming = [...appointments]
+    .filter(a => isAfter(new Date(a.start_at), today) || isSameDay(new Date(a.start_at), today))
+    .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
+    .slice(0, 10)
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Mini calendar */}
       <div style={{ background: '#111', border: '1px solid #222', borderRadius: 12, padding: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <button onClick={() => setViewMonth(m => subMonths(m, 1))} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 16 }}>‹</button>
@@ -78,14 +98,11 @@ export function AgendaMiniCalendar({ appointments, selectedDate, onDateSelect, a
         </div>
       </div>
 
+      {/* Filters */}
       <div style={{ background: '#111', border: '1px solid #222', borderRadius: 12, padding: 16 }}>
         <div style={{ fontSize: 11, color: '#555', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filtrar por tipo</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[
-            { key: 'visita', label: 'Visita', color: '#10b981' },
-            { key: 'call', label: 'Call', color: '#42a5f5' },
-            { key: 'reuniao', label: 'Reunião', color: '#ab47bc' },
-          ].map(f => {
+          {FILTERS.map(f => {
             const active = activeFilters.includes(f.key)
             return (
               <button key={f.key} onClick={() => toggleFilter(f.key)} style={{
@@ -101,6 +118,49 @@ export function AgendaMiniCalendar({ appointments, selectedDate, onDateSelect, a
             )
           })}
         </div>
+      </div>
+
+      {/* Upcoming appointments */}
+      <div style={{ background: '#111', border: '1px solid #222', borderRadius: 12, padding: 16 }}>
+        <div style={{ fontSize: 11, color: '#555', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Próximos</div>
+        {upcoming.length === 0 ? (
+          <div style={{ fontSize: 11, color: '#333', textAlign: 'center', padding: '8px 0' }}>Sem eventos</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {upcoming.map(apt => {
+              const color = TYPE_COLORS[apt.type] ?? '#555'
+              const label = TYPE_LABELS[apt.type] ?? apt.type
+              const aptDate = new Date(apt.start_at)
+              const isToday = isSameDay(aptDate, new Date())
+              return (
+                <div key={apt.id}
+                onClick={() => onAppointmentClick?.(apt)}
+                style={{
+                  padding: '8px 10px', borderRadius: 8,
+                  background: `${color}0d`, border: `1px solid ${color}33`,
+                  cursor: onAppointmentClick ? 'pointer' : 'default',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => { if (onAppointmentClick) (e.currentTarget as HTMLElement).style.background = `${color}1a` }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = `${color}0d` }}
+              >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                    <span style={{ fontSize: 10, color, fontWeight: 600 }}>{label}</span>
+                    {isToday && (
+                      <span style={{ fontSize: 9, background: '#10b98122', color: '#10b981', borderRadius: 4, padding: '1px 5px', marginLeft: 'auto' }}>Hoje</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#f0f0f0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{apt.title}</div>
+                  <div style={{ fontSize: 10, color: '#555', marginTop: 2 }}>
+                    {format(aptDate, isToday ? 'HH:mm' : "d MMM · HH:mm", { locale: ptBR })}
+                    {apt.lead && ` · ${apt.lead.nome.split(' ')[0]}`}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

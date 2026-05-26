@@ -5,12 +5,12 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recha
 const COLORS = ['#10b981', '#42a5f5', '#ab47bc', '#ffab40', '#ef5350', '#6ee7b7', '#80cbc4']
 
 interface RegiaoDonutProps {
-  data: { tipo: string; count: number }[]
+  data: { regiao: string; count: number }[]
 }
 
 export function RegiaoDonut({ data }: RegiaoDonutProps) {
   const chartData = data.map((d, i) => ({
-    name: d.tipo,
+    name: d.regiao,
     value: d.count,
     color: COLORS[i % COLORS.length],
   }))
@@ -26,7 +26,7 @@ export function RegiaoDonut({ data }: RegiaoDonutProps) {
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, color: '#f0f0f0' }}>
         Região de interesse
       </div>
-      <div style={{ fontSize: 11, color: '#555', marginBottom: 8 }}>Por tipo de imóvel</div>
+      <div style={{ fontSize: 11, color: '#555', marginBottom: 8 }}>Por região buscada</div>
       {chartData.length === 0 ? (
         <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ fontSize: 12, color: '#333' }}>Sem dados</span>

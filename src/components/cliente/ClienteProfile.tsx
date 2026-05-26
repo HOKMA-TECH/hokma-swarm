@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { type Lead, type Proponente } from '@/types/database'
 
@@ -186,6 +187,7 @@ type LeadForm = {
 
 export function ClienteProfile({ lead }: { lead: Lead }) {
   const supabase = createClient()
+  const router = useRouter()
 
   const [form, setForm] = useState<LeadForm>({
     nome: lead.nome,
@@ -271,6 +273,7 @@ export function ClienteProfile({ lead }: { lead: Lead }) {
   async function saveProponentes(newList: Proponente[]) {
     setProponentes(newList)
     await supabase.from('leads').update({ proponentes: newList.length > 0 ? newList : null }).eq('id', lead.id)
+    router.refresh()
   }
 
   function handleSaveProp(form: PropForm) {

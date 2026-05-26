@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { CreditAnalysis, Document, Lead } from '@/types/database'
 import { formatDate } from '@/lib/utils'
@@ -158,15 +159,7 @@ function buildEmailBody(lead: Lead): string {
   const extras = lead.proponentes ?? []
   extras.forEach((p, i) => { body += propBlock(i + 2, p) + '\n' })
 
-  if (lead.regiao_interesse || lead.empreendimento || lead.vgv) {
-    body += 'EMPREENDIMENTO\n'
-    if (lead.regiao_interesse) body += 'REGIÃO DE INTERESSE: ' + lead.regiao_interesse + '\n'
-    if (lead.empreendimento) body += 'EMPREENDIMENTO: ' + lead.empreendimento + '\n'
-    if (lead.vgv) body += 'VGV: ' + fmtR(lead.vgv) + '\n'
-    body += '\n'
-  }
-
-  if (lead.campaign_source) body += 'CAMPANHA: ' + lead.campaign_source + '\n\n'
+  if (lead.observations) body += 'OBSERVAÇÕES: ' + lead.observations + '\n\n'
 
   body += 'Documentos em anexo.'
   return body
@@ -223,6 +216,7 @@ function ComposeEmailModal({
     })
     setSending(false)
     if (!res.ok) { setError('Erro ao enviar. Tente novamente.'); return }
+    await supabase.from('leads').update({ stage: 'em_analise' }).eq('id', lead.id)
     const { data } = await supabase.from('credit_analyses').select('*').eq('lead_id', lead.id)
       .order('created_at', { ascending: false }).limit(1).maybeSingle()
     onSent(data)
@@ -435,6 +429,7 @@ interface Props {
 }
 
 export function CreditAnalysisDropdown({ leadId, lead, creditAnalysis }: Props) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [analysis, setAnalysis] = useState(creditAnalysis)
   const [activeModal, setActiveModal] = useState<null | 'compose' | 'awaiting' | 'result'>(null)
@@ -544,7 +539,7 @@ export function CreditAnalysisDropdown({ leadId, lead, creditAnalysis }: Props) 
         <ComposeEmailModal
           lead={lead}
           onClose={() => setActiveModal(null)}
-          onSent={newAnalysis => { setAnalysis(newAnalysis); setOpen(false) }}
+          onSent={newAnalysis => { setAnalysis(newAnalysis); setOpen(false); router.refresh() }}
         />
       )}
       {activeModal === 'awaiting' && (
