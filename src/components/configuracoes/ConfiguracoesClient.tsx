@@ -306,26 +306,34 @@ function MfaSection() {
 
   async function loadFactors() {
     const { data, error } = await supabase.auth.mfa.listFactors()
-    if (!error && data?.totp?.length) {
-      const verified = data.totp.find((f: MfaFactor) => f.status === 'verified')
-      setFactor(verified ?? null)
-    }
+    if (error) { setFactor(null); return }
+    const all: MfaFactor[] = [
+      ...(data?.totp ?? []),
+      ...(data?.all ?? []),
+    ]
+    const verified = all.find(f => f.factor_type === 'totp' && f.status === 'verified')
+    setFactor(verified ?? null)
   }
 
   async function startEnroll() {
     setLoading(true)
     setFeedback(null)
 
-    // Remove any existing unverified TOTP factors before enrolling
+    // Remove ALL existing TOTP factors to avoid name/limit conflicts
     const { data: existing } = await supabase.auth.mfa.listFactors()
-    if (existing?.totp?.length) {
-      for (const f of existing.totp) {
-        if (f.status !== 'verified') {
-          await supabase.auth.mfa.unenroll({ factorId: f.id })
-        }
+    const allFactors = [
+      ...(existing?.totp ?? []),
+      ...(existing?.all ?? []),
+    ]
+    const seen = new Set<string>()
+    for (const f of allFactors) {
+      if (!seen.has(f.id)) {
+        seen.add(f.id)
+        await supabase.auth.mfa.unenroll({ factorId: f.id })
       }
     }
 
+    // Use a unique name to avoid any residual conflict
     const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'HOKMA SWARM' })
     setLoading(false)
     if (error || !data) return setFeedback({ msg: error?.message ?? 'Erro ao iniciar 2FA.', ok: false })
