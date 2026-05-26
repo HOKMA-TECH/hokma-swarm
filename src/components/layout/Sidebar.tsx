@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 
 const NAV_ITEMS = [
   { href: '/dashboard',         label: 'Dashboard',         icon: 'grid' },
-  { href: '/clientes',          label: 'Clientes',          icon: 'users' },
   { href: '/pipeline',          label: 'Pipeline',          icon: 'bar' },
   { href: '/agenda',            label: 'Agenda',            icon: 'cal' },
   { href: '/relatorios',        label: 'Relatórios',        icon: 'chart' },

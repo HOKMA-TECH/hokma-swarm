@@ -1,5 +1,5 @@
 import { Droppable } from '@hello-pangea/dnd'
-import { LeadCard } from './LeadCard'
+import { LeadCard, type LeadCardAction } from './LeadCard'
 import type { Lead } from '@/types/database'
 
 interface KanbanColumnProps {
@@ -8,9 +8,10 @@ interface KanbanColumnProps {
   color: string
   leads: (Lead & { doc_count: number })[]
   onCardClick: (lead: Lead) => void
+  onCardAction: (lead: Lead & { doc_count: number }, action: LeadCardAction) => void
 }
 
-export function KanbanColumn({ stageId, label, color, leads, onCardClick }: KanbanColumnProps) {
+export function KanbanColumn({ stageId, label, color, leads, onCardClick, onCardAction }: KanbanColumnProps) {
   return (
     <div style={{
       background: '#111', border: '1px solid #222', borderRadius: 12,
@@ -49,6 +50,7 @@ export function KanbanColumn({ stageId, label, color, leads, onCardClick }: Kanb
                 lead={lead}
                 index={index}
                 onClick={() => onCardClick(lead)}
+                onAction={(action) => onCardAction(lead, action)}
               />
             ))}
             {provided.placeholder}

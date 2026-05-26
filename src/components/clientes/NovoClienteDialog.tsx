@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { STAGE_CONFIG } from '@/types/database'
+import type { Lead } from '@/types/database'
 
 const TIPO_OPTIONS = [
   'Apartamento', 'Casa', 'Terreno', 'Sala Comercial',
@@ -23,9 +23,12 @@ const divider: React.CSSProperties = {
 
 interface Props {
   onClose: () => void
+  onCreated?: (lead: Lead & { doc_count: number }) => void
+  onDocumentUploaded?: (leadId: string) => void
+  redirectOnFinish?: boolean
 }
 
-export function NovoClienteDialog({ onClose }: Props) {
+export function NovoClienteDialog({ onClose, onCreated, onDocumentUploaded, redirectOnFinish = true }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -40,7 +43,6 @@ export function NovoClienteDialog({ onClose }: Props) {
   const [renda, setRenda] = useState('')
   const [tipoImovel, setTipoImovel] = useState('')
   const [campaignSource, setCampaignSource] = useState('')
-  const [stage, setStage] = useState<'pendente' | 'em_analise' | 'aprovado'>('pendente')
   const [observations, setObservations] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
@@ -67,7 +69,7 @@ export function NovoClienteDialog({ onClose }: Props) {
         renda: renda ? parseFloat(renda.replace(/\D/g, '')) || null : null,
         tipo_imovel: tipoImovel || null,
         campaign_source: campaignSource.trim() || null,
-        stage,
+        stage: 'pendente',
         observations: observations.trim() || null,
       })
       .select()
@@ -81,29 +83,33 @@ export function NovoClienteDialog({ onClose }: Props) {
     }
 
     setNewLeadId(data.id)
+    onCreated?.({ ...(data as Lead), doc_count: 0 })
     setStep('docs')
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!newLeadId) return
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
     setUploading(true)
 
-    const path = `${newLeadId}/${crypto.randomUUID()}-${file.name}`
-    const { error: uploadErr } = await supabase.storage
-      .from('documentos')
-      .upload(path, file)
+    for (const file of files) {
+      const path = `${newLeadId}/${crypto.randomUUID()}-${file.name}`
+      const { error: uploadErr } = await supabase.storage
+        .from('documentos')
+        .upload(path, file)
 
-    if (!uploadErr) {
-      await supabase.from('documents').insert({
-        lead_id: newLeadId,
-        name: file.name,
-        type: file.name.split('.').pop() ?? 'arquivo',
-        storage_path: path,
-        uploaded_by: 'corretor',
-      })
-      setUploadedDocs(prev => [...prev, file.name])
+      if (!uploadErr) {
+        await supabase.from('documents').insert({
+          lead_id: newLeadId,
+          name: file.name,
+          type: file.name.split('.').pop() ?? 'arquivo',
+          storage_path: path,
+          uploaded_by: 'corretor',
+        })
+        setUploadedDocs(prev => [...prev, file.name])
+        onDocumentUploaded?.(newLeadId)
+      }
     }
 
     setUploading(false)
@@ -111,7 +117,7 @@ export function NovoClienteDialog({ onClose }: Props) {
   }
 
   function handleFinish() {
-    if (newLeadId) router.push(`/clientes/${newLeadId}`)
+    if (redirectOnFinish && newLeadId) router.push(`/clientes/${newLeadId}`)
     onClose()
   }
 
@@ -227,31 +233,6 @@ export function NovoClienteDialog({ onClose }: Props) {
                 </div>
               </div>
 
-              {/* Stage */}
-              <div style={divider}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-                  Stage inicial
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {(['pendente', 'em_analise', 'aprovado'] as const).map(s => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setStage(s)}
-                      style={{
-                        padding: '7px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                        background: stage === s ? `${STAGE_CONFIG[s].color}22` : '#161616',
-                        border: `1px solid ${stage === s ? STAGE_CONFIG[s].color : '#333'}`,
-                        color: stage === s ? STAGE_CONFIG[s].color : '#555',
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      {STAGE_CONFIG[s].label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Observações */}
               <div style={divider}>
                 <label style={lbl}>Observações</label>
@@ -290,7 +271,11 @@ export function NovoClienteDialog({ onClose }: Props) {
               >
                 <div style={{ fontSize: 36, marginBottom: 10 }}>📎</div>
                 <div style={{ fontSize: 14, color: '#f0f0f0', fontWeight: 600, marginBottom: 4 }}>
-                  {uploading ? 'Enviando...' : 'Clique para selecionar arquivo'}
+                  {uploading
+                    ? 'Enviando...'
+                    : uploadedDocs.length > 0
+                      ? 'Clique para adicionar mais arquivos'
+                      : 'Clique para selecionar arquivos'}
                 </div>
                 <div style={{ fontSize: 11, color: '#555' }}>
                   PDF, JPG, PNG, DOC — máx. 10MB por arquivo
@@ -301,6 +286,7 @@ export function NovoClienteDialog({ onClose }: Props) {
                   onChange={handleUpload}
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                   disabled={uploading}
+                  multiple
                 />
               </label>
 
@@ -381,7 +367,7 @@ export function NovoClienteDialog({ onClose }: Props) {
                   padding: '11px 0', color: '#000', fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 }}
               >
-                Ver ficha do cliente →
+                {redirectOnFinish ? 'Ver ficha do cliente →' : 'Concluir'}
               </button>
             </>
           )}
