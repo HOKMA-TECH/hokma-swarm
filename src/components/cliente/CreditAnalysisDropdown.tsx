@@ -386,9 +386,9 @@ function PdfViewer({ url }: { url: string }) {
     <div style={{ padding: 40, textAlign: 'center' }}>
       <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
       <div style={{ fontSize: 13, color: '#aaa', marginBottom: 16 }}>Não foi possível pré-visualizar.</div>
-      <a href={url} target="_blank" rel="noopener noreferrer"
-        style={{ fontSize: 13, color: '#10b981', textDecoration: 'underline' }}>
-        Abrir em nova aba
+      <a href={url} download
+        style={{ fontSize: 13, color: '#10b981', background: '#10b98122', border: '1px solid #10b98144', borderRadius: 8, padding: '9px 18px', textDecoration: 'none', fontWeight: 600 }}>
+        Baixar ↓
       </a>
     </div>
   )
@@ -432,16 +432,6 @@ function AttachmentPopup({
             {att.url && (
               <a
                 href={att.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ fontSize: 12, color: '#aaa', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, padding: '5px 10px', textDecoration: 'none' }}
-              >
-                Abrir ↗
-              </a>
-            )}
-            {att.url && (
-              <a
-                href={att.url}
                 download={att.filename}
                 style={{ fontSize: 12, color: '#10b981', background: '#10b98122', border: '1px solid #10b98144', borderRadius: 6, padding: '5px 10px', textDecoration: 'none', fontWeight: 600 }}
               >
@@ -466,16 +456,10 @@ function AttachmentPopup({
             <div style={{ padding: 48, textAlign: 'center' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>📎</div>
               <div style={{ fontSize: 14, color: '#f0f0f0', marginBottom: 20 }}>{att.filename}</div>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                <a href={att.url} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 13, color: '#aaa', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 8, padding: '9px 18px', textDecoration: 'none' }}>
-                  Abrir ↗
-                </a>
-                <a href={att.url} download={att.filename}
-                  style={{ fontSize: 13, color: '#10b981', background: '#10b98122', border: '1px solid #10b98144', borderRadius: 8, padding: '9px 18px', textDecoration: 'none', fontWeight: 600 }}>
-                  Baixar ↓
-                </a>
-              </div>
+              <a href={att.url} download={att.filename}
+                style={{ fontSize: 13, color: '#10b981', background: '#10b98122', border: '1px solid #10b98144', borderRadius: 8, padding: '9px 18px', textDecoration: 'none', fontWeight: 600 }}>
+                Baixar ↓
+              </a>
             </div>
           ) : (
             <div style={{ padding: 40, textAlign: 'center' }}>
