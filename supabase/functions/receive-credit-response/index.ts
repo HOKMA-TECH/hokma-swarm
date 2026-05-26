@@ -68,9 +68,9 @@ Deno.serve(async (req) => {
   const subject: string = data?.subject ?? ''
   const body: string    = data?.text ?? data?.html ?? ''
 
-  // Extrai o lead_id do assunto ou corpo (formato: ID:uuid)
+  // Extrai o lead_id do assunto ou corpo (formatos: [ref:uuid] ou ID:uuid)
   const match = (subject + ' ' + body).match(
-    /ID:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
+    /(?:\[ref:|ID:)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]?/i
   )
   if (!match) {
     console.log('lead_id não encontrado. Assunto:', subject)

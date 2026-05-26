@@ -60,7 +60,9 @@ Deno.serve(async (req) => {
   }
 
   // Corpo do email — ID no rodapé para match de resposta (não no assunto)
-  const finalBody = body + `\n\n---\nRef: ID:${lead_id}`
+  // ID no assunto é obrigatório: Resend não envia o corpo no webhook email.received
+  const finalSubject = `${subject} [ref:${lead_id}]`
+  const finalBody    = body
 
   const toList  = to_email.split(',').map((e: string) => e.trim()).filter(Boolean)
   const ccList  = cc  ? cc.split(',').map((e: string) => e.trim()).filter(Boolean)  : undefined
@@ -70,7 +72,7 @@ Deno.serve(async (req) => {
     from:     FROM_EMAIL,
     reply_to: REPLY_TO_EMAIL,
     to:       toList,
-    subject,
+    subject:  finalSubject,
     text:     finalBody,
   }
   if (ccList?.length)    resendPayload.cc          = ccList
