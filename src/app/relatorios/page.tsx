@@ -3,7 +3,7 @@ import { RelatorioKpis } from '@/components/relatorios/RelatorioKpis'
 import { LeadsLineChart } from '@/components/relatorios/LeadsLineChart'
 import { ConversionFunnel } from '@/components/relatorios/ConversionFunnel'
 import { OrigemDonut } from '@/components/relatorios/OrigemDonut'
-import { PrintButton } from '@/components/relatorios/PrintButton'
+import { ExportPDFButton, type ReportData } from '@/components/relatorios/ExportPDFButton'
 import { ClosingEvolutionChart } from '@/components/relatorios/ClosingEvolutionChart'
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector'
 import { StageDonut } from '@/components/dashboard/StageDonut'
@@ -259,6 +259,20 @@ export default async function RelatoriosPage({
     })
     .sort((a, b) => b.leads - a.leads)
 
+  // ── Report data para exportação ──────────────────────────────────────
+  const reportData: ReportData = {
+    periodLabel,
+    kpis,
+    stageChartData,
+    regiaoData,
+    funnelStages,
+    originData,
+    campaignRows,
+    desistRows: [] as [string, number][],   // preenchido abaixo após desistMap
+    closingData,
+    closingGranularity,
+  }
+
   // ── Desistência by loss_reason ────────────────────────────────────────
   const desistLeads = leads.filter(l => l.stage === 'desistencia')
   const desistMap = desistLeads.reduce<Record<string, number>>((acc, l) => {
@@ -266,7 +280,8 @@ export default async function RelatoriosPage({
     acc[r] = (acc[r] ?? 0) + 1
     return acc
   }, {})
-  const desistRows = Object.entries(desistMap).sort((a, b) => b[1] - a[1])
+  const desistRows = Object.entries(desistMap).sort((a, b) => b[1] - a[1]) as [string, number][]
+  reportData.desistRows = desistRows
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'auto' }}>
@@ -278,7 +293,7 @@ export default async function RelatoriosPage({
         <h1 style={{ fontSize: 16, fontWeight: 600 }}>Relatórios</h1>
         <PeriodSelector basePath="/relatorios" />
         <div style={{ flex: 1 }} />
-        <PrintButton />
+        <ExportPDFButton data={reportData} />
       </div>
 
       <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
