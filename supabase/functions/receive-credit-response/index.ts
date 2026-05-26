@@ -78,9 +78,9 @@ Deno.serve(async (req) => {
   let body = ''
   if (emailId && RESEND_API_KEY) {
     const received = await resendGet(`/emails/received/${emailId}`)
+    console.log('Received API full response:', JSON.stringify(received))
     if (received) {
       body = received.text ?? received.html ?? ''
-      console.log(`Received email API: temCorpo=${!!body} bodyLen=${body.length}`)
     }
   }
 
