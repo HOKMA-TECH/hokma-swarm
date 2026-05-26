@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Sidebar } from '@/components/layout/Sidebar'
-import { NetworkBackground } from '@/components/layout/NetworkBackground'
 import { createClient } from '@/lib/supabase/server'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -19,8 +18,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
-        <NetworkBackground />
-        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
           {user && <Sidebar />}
           <main style={{ flex: 1, overflow: 'auto' }}>
             {children}

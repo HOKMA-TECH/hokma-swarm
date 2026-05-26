@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { NetworkBackground } from '@/components/layout/NetworkBackground'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -29,11 +30,13 @@ export default function LoginPage() {
   return (
     <div style={{
       minHeight: '100vh', background: '#0a0a0a', display: 'flex',
-      alignItems: 'center', justifyContent: 'center'
+      alignItems: 'center', justifyContent: 'center', position: 'relative',
     }}>
+      <NetworkBackground />
       <div style={{
         background: '#111', border: '1px solid #222', borderRadius: 16,
-        padding: '40px 36px', width: 360, display: 'flex', flexDirection: 'column', gap: 24
+        padding: '40px 36px', width: 360, display: 'flex', flexDirection: 'column', gap: 24,
+        position: 'relative', zIndex: 1,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, marginBottom: 8 }}>
           <svg width="56" height="56" viewBox="0 0 72 72" fill="none">
