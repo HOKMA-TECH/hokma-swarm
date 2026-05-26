@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { NetworkBackground } from '@/components/layout/NetworkBackground'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 
 type LoginStep = 'password' | 'totp'
 
@@ -16,24 +17,38 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState('')
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null)
   const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const turnstileRef = useRef<TurnstileInstance>(null)
   const router = useRouter()
   const supabase = createClient()
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
+    if (!captchaToken) {
+      setError('Conclua a verificação de segurança.')
+      return
+    }
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken },
+    })
+
     if (error) {
       setError('Email ou senha inválidos.')
       setLoading(false)
+      // Reset captcha so user can try again
+      turnstileRef.current?.reset()
+      setCaptchaToken(null)
       return
     }
 
     // Check if MFA is required
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     if (aal?.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel) {
-      // List factors to get the verified TOTP factor
       const { data: factors } = await supabase.auth.mfa.listFactors()
       const totpFactor = factors?.totp?.find(f => f.status === 'verified')
       if (totpFactor) {
@@ -136,14 +151,26 @@ export default function LoginPage() {
                 }}
               />
             </div>
-            {error && <p style={{ color: '#ef5350', fontSize: 12 }}>{error}</p>}
+
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                onSuccess={token => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+                onError={() => { setCaptchaToken(null); setError('Erro na verificação de segurança. Recarregue a página.') }}
+                options={{ theme: 'dark', size: 'normal' }}
+              />
+            </div>
+
+            {error && <p style={{ color: '#ef5350', fontSize: 12, margin: 0 }}>{error}</p>}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !captchaToken}
               style={{
                 background: '#10b981', border: 'none', borderRadius: 8, padding: '11px',
-                color: '#000', fontWeight: 700, fontSize: 14, cursor: 'pointer',
-                opacity: loading ? 0.7 : 1
+                color: '#000', fontWeight: 700, fontSize: 14, cursor: loading || !captchaToken ? 'not-allowed' : 'pointer',
+                opacity: loading || !captchaToken ? 0.7 : 1
               }}
             >
               {loading ? 'Verificando…' : 'Entrar'}
@@ -173,7 +200,7 @@ export default function LoginPage() {
                 }}
               />
             </div>
-            {error && <p style={{ color: '#ef5350', fontSize: 12 }}>{error}</p>}
+            {error && <p style={{ color: '#ef5350', fontSize: 12, margin: 0 }}>{error}</p>}
             <button
               type="submit"
               disabled={loading || totpCode.length < 6}
