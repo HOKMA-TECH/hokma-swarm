@@ -209,12 +209,20 @@ export function NovoClienteDialog({ onClose, onCreated, onDocumentUploaded, redi
       fator_social: p.fator_social,
     }))
 
-    const { data, error } = await supabase.from('leads').insert({
+    // Base fields (always exist) + extended fields (need migration 004)
+    const basePayload = {
       nome: main.nome.trim(),
       telefone: main.telefone.trim(),
       email: main.email.trim() || null,
       cpf: main.cpf.trim() || null,
       renda: parseRenda(main.renda),
+      campaign_source: campaignSource.trim() || null,
+      observations: observations.trim() || null,
+      stage: 'pendente',
+    }
+
+    const extendedPayload = {
+      ...basePayload,
       tipo_renda: main.tipo_renda || null,
       cotista: main.cotista,
       fator_social: main.fator_social,
@@ -223,19 +231,26 @@ export function NovoClienteDialog({ onClose, onCreated, onDocumentUploaded, redi
       regiao_interesse: regiaoInteresse.trim() || null,
       empreendimento: empreendimento.trim() || null,
       vgv: parseRenda(vgv),
-      campaign_source: campaignSource.trim() || null,
-      observations: observations.trim() || null,
       proponentes: extraProps.length > 0 ? extraProps : null,
-      stage: 'pendente',
-    }).select().single()
+    }
 
-    setSaving(false)
+    let result = await supabase.from('leads').insert(extendedPayload).select().single()
 
-    if (error || !data) {
-      setFormError('Erro ao criar cliente. Verifique os dados e tente novamente.')
+    // If new columns don't exist yet (migration 004 not run), fall back to base fields
+    if (result.error?.code === '42703') {
+      result = await supabase.from('leads').insert(basePayload).select().single()
+    }
+
+    const { data, error } = result
+
+    if (error) {
+      console.error('Supabase insert error:', error)
+      setSaving(false)
+      setFormError(`Erro ao criar cliente: ${error.message}`)
       return
     }
 
+    setSaving(false)
     setNewLeadNome(main.nome.trim())
     setNewLeadId(data.id)
     onCreated?.({ ...(data as Lead), doc_count: 0 })
