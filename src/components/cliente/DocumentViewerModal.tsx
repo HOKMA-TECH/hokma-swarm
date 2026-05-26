@@ -10,10 +10,22 @@ function ext(doc: Document) { return (doc.type ?? doc.name.split('.').pop() ?? '
 function isImg(doc: Document) { return IMAGE_EXTS.has(ext(doc)) }
 function isPdf(doc: Document) { return ext(doc) === 'pdf' }
 
+async function downloadBlob(url: string, filename: string) {
+  const res = await fetch(url)
+  const blob = await res.blob()
+  const blobUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = blobUrl
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(blobUrl)
+}
+
 export function DocumentViewerModal({ doc, onClose }: { doc: Document; onClose: () => void }) {
   const supabase = createClient()
   const [url, setUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     supabase.storage.from('documentos').createSignedUrl(doc.storage_path, 7200)
@@ -43,15 +55,17 @@ export function DocumentViewerModal({ doc, onClose }: { doc: Document; onClose: 
             {doc.name}
           </span>
           {url && (
-            <a
-              href={url}
-              download={doc.name}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ background: '#10b98122', border: '1px solid #10b98144', borderRadius: 8, padding: '6px 14px', fontSize: 12, color: '#10b981', textDecoration: 'none', fontWeight: 600, flexShrink: 0 }}
+            <button
+              onClick={async () => {
+                setDownloading(true)
+                await downloadBlob(url, doc.name)
+                setDownloading(false)
+              }}
+              disabled={downloading}
+              style={{ background: '#10b98122', border: '1px solid #10b98144', borderRadius: 8, padding: '6px 14px', fontSize: 12, color: '#10b981', fontWeight: 600, flexShrink: 0, cursor: downloading ? 'not-allowed' : 'pointer', opacity: downloading ? 0.6 : 1 }}
             >
-              ↓ Download
-            </a>
+              {downloading ? 'Baixando...' : '↓ Download'}
+            </button>
           )}
           <button
             onClick={onClose}
