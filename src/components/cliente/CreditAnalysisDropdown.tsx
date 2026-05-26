@@ -38,6 +38,87 @@ const inp: React.CSSProperties = {
 
 const lbl: React.CSSProperties = { fontSize: 11, color: '#555', marginBottom: 4, display: 'block' }
 
+/* ── Email chip input (like Gmail) ───────────────────────── */
+function EmailChipInput({
+  label,
+  chips,
+  inputVal,
+  onInputChange,
+  onAdd,
+  onRemove,
+  placeholder,
+  autoFocus,
+}: {
+  label: string
+  chips: string[]
+  inputVal: string
+  onInputChange: (v: string) => void
+  onAdd: (email: string) => void
+  onRemove: (email: string) => void
+  placeholder?: string
+  autoFocus?: boolean
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function commit(raw: string) {
+    const email = raw.trim().replace(/,$/, '')
+    if (email && !chips.includes(email)) onAdd(email)
+    onInputChange('')
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      commit(inputVal)
+    } else if (e.key === 'Backspace' && inputVal === '' && chips.length > 0) {
+      onRemove(chips[chips.length - 1])
+    }
+  }
+
+  return (
+    <div>
+      <label style={lbl}>{label}</label>
+      <div
+        onClick={() => inputRef.current?.focus()}
+        style={{
+          display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5,
+          background: '#161616', border: '1px solid #2a2a2a', borderRadius: 8,
+          padding: '6px 10px', minHeight: 40, cursor: 'text',
+        }}
+      >
+        {chips.map(email => (
+          <span key={email} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            background: '#10b98122', border: '1px solid #10b98144',
+            borderRadius: 20, padding: '3px 10px', fontSize: 12, color: '#10b981',
+            whiteSpace: 'nowrap',
+          }}>
+            {email}
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onRemove(email) }}
+              style={{ background: 'none', border: 'none', color: '#10b98199', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1, display: 'flex', alignItems: 'center' }}
+            >×</button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          autoFocus={autoFocus}
+          value={inputVal}
+          onChange={e => onInputChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={() => { if (inputVal.trim()) commit(inputVal) }}
+          placeholder={chips.length === 0 ? (placeholder ?? '') : ''}
+          style={{
+            flex: 1, minWidth: 140, background: 'none', border: 'none',
+            outline: 'none', color: '#f0f0f0', fontSize: 13, padding: '2px 0',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
 /* ── Compose Email Modal (Step 2) ─────────────────────────── */
 function ComposeEmailModal({
   lead,
@@ -50,43 +131,53 @@ function ComposeEmailModal({
 }) {
   const supabase = createClient()
   const [docs, setDocs] = useState<Document[]>([])
-  const [to, setTo] = useState('')
-  const [cc, setCc] = useState('')
-  const [bcc, setBcc] = useState('')
+
+  const [toChips, setToChips] = useState<string[]>([])
+  const [toInput, setToInput] = useState('')
+  const [ccChips, setCcChips] = useState<string[]>([])
+  const [ccInput, setCcInput] = useState('')
+  const [bccChips, setBccChips] = useState<string[]>([])
+  const [bccInput, setBccInput] = useState('')
+
+  const [subject, setSubject] = useState(
+    'HOKMA SWARM | SOLICITO ANÁLISE | ' + (lead.tipo_imovel ?? 'Não informado') + ' | ' + lead.nome + (lead.cpf ? ' (' + lead.cpf + ')' : '')
+  )
+  const [body, setBody] = useState(
+    'Bom dia, solicito a análise de crédito do cliente em questão.\n\n' +
+    'PROPONENTE\n' +
+    'NOME: ' + lead.nome + '\n' +
+    'CPF: ' + (lead.cpf ?? 'Não informado') + '\n' +
+    'E-MAIL: ' + (lead.email ?? 'Não informado') + '\n' +
+    'TELEFONE: ' + lead.telefone + '\n' +
+    'RENDA: ' + (lead.renda != null ? 'R$ ' + lead.renda.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : 'Não informado') + '\n' +
+    'TIPO DE IMÓVEL: ' + (lead.tipo_imovel ?? 'Não informado') + '\n' +
+    'CAMPANHA: ' + (lead.campaign_source ?? 'Não informado') + '\n\n' +
+    'Documentos em anexo.'
+  )
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
-
-  const defaultSubject = `HOKMA SWARM | SOLICITO ANÁLISE | ${lead.tipo_imovel ?? 'Não informado'} | ${lead.nome}${lead.cpf ? ` (${lead.cpf})` : ''}`
-
-  const defaultBody = `Bom dia, solicito a análise de crédito do cliente em questão.
-
-PROPONENTE
-NOME: ${lead.nome}
-CPF: ${lead.cpf ?? 'Não informado'}
-E-MAIL: ${lead.email ?? 'Não informado'}
-TELEFONE: ${lead.telefone}
-RENDA: ${lead.renda != null ? `R$ ${lead.renda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado'}
-TIPO DE IMÓVEL: ${lead.tipo_imovel ?? 'Não informado'}
-CAMPANHA: ${lead.campaign_source ?? 'Não informado'}
-
-Documentos em anexo.`
-
-  const [body, setBody] = useState(defaultBody)
 
   useEffect(() => {
     supabase.from('documents').select('*').eq('lead_id', lead.id).order('uploaded_at')
       .then(({ data }) => setDocs(data ?? []))
   }, [lead.id])
 
+  function removeDoc(id: string) { setDocs(prev => prev.filter(d => d.id !== id)) }
+
+  const allTo = toInput.trim() ? [...toChips, toInput.trim()] : toChips
+  const canSend = allTo.length > 0
+
   async function handleSend() {
-    if (!to.trim()) { setError('Informe o e-mail de destino.'); return }
+    if (!canSend) { setError('Informe ao menos um e-mail de destino.'); return }
     setSending(true)
     setError('')
     const { data: { session } } = await supabase.auth.getSession()
+    const ccStr = (ccInput.trim() ? [...ccChips, ccInput.trim()] : ccChips).join(', ')
+    const bccStr = (bccInput.trim() ? [...bccChips, bccInput.trim()] : bccChips).join(', ')
     const res = await fetch('/api/send-credit-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-      body: JSON.stringify({ lead_id: lead.id, to_email: to.trim(), cc: cc.trim(), bcc: bcc.trim(), subject: defaultSubject, body }),
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session?.access_token },
+      body: JSON.stringify({ lead_id: lead.id, to_email: allTo.join(', '), cc: ccStr, bcc: bccStr, subject, body }),
     })
     setSending(false)
     if (!res.ok) { setError('Erro ao enviar. Tente novamente.'); return }
@@ -98,8 +189,7 @@ Documentos em anexo.`
 
   return (
     <div style={overlayStyle} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ ...modalStyle, width: 620, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
+      <div style={{ ...modalStyle, width: 640, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700 }}>Novo Email</div>
@@ -108,57 +198,49 @@ Documentos em anexo.`
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <label style={lbl}>Para *</label>
-            <input style={inp} value={to} onChange={e => setTo(e.target.value)} placeholder="analise@banco.com" autoFocus />
-          </div>
+        <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <EmailChipInput label="Para *" chips={toChips} inputVal={toInput} onInputChange={setToInput}
+            onAdd={e => setToChips(p => [...p, e])} onRemove={e => setToChips(p => p.filter(x => x !== e))}
+            placeholder="analise@banco.com" autoFocus />
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={lbl}>Cc</label>
-              <input style={inp} value={cc} onChange={e => setCc(e.target.value)} placeholder="copia@empresa.com" />
-            </div>
-            <div>
-              <label style={lbl}>Cco (Bcc)</label>
-              <input style={inp} value={bcc} onChange={e => setBcc(e.target.value)} placeholder="secreto@empresa.com" />
-            </div>
+            <EmailChipInput label="Cc" chips={ccChips} inputVal={ccInput} onInputChange={setCcInput}
+              onAdd={e => setCcChips(p => [...p, e])} onRemove={e => setCcChips(p => p.filter(x => x !== e))}
+              placeholder="copia@empresa.com" />
+            <EmailChipInput label="Cco (Bcc)" chips={bccChips} inputVal={bccInput} onInputChange={setBccInput}
+              onAdd={e => setBccChips(p => [...p, e])} onRemove={e => setBccChips(p => p.filter(x => x !== e))}
+              placeholder="secreto@empresa.com" />
           </div>
+
           <div>
             <label style={lbl}>Assunto</label>
-            <div style={{ ...inp, color: '#888', fontSize: 12, wordBreak: 'break-word', lineHeight: 1.5 }}>
-              {defaultSubject}
-            </div>
+            <input style={inp} value={subject} onChange={e => setSubject(e.target.value)} />
           </div>
+
           <div>
             <label style={lbl}>Corpo</label>
-            <textarea
-              rows={10}
-              style={{ ...inp, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
-              value={body}
-              onChange={e => setBody(e.target.value)}
-            />
+            <textarea rows={10} style={{ ...inp, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
+              value={body} onChange={e => setBody(e.target.value)} />
           </div>
 
           {docs.length > 0 && (
             <div>
               <label style={lbl}>Anexos ({docs.length})</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {docs.map(doc => (
                   <div key={doc.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    background: '#161616', border: '1px solid #2a2a2a', borderRadius: 8,
-                    padding: '5px 10px',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: '#161616', border: '1px solid #2a2a2a', borderRadius: 8, padding: '7px 12px',
                   }}>
-                    <span style={{ fontSize: 13 }}>📎</span>
-                    <span style={{ fontSize: 11, color: '#f0f0f0' }}>{doc.name}</span>
-                    {doc.type && <span style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>{doc.type.toUpperCase()}</span>}
+                    <span style={{ fontSize: 14 }}>📎</span>
+                    <span style={{ flex: 1, fontSize: 12, color: '#f0f0f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</span>
+                    {doc.type && <span style={{ fontSize: 10, color: '#10b981', fontWeight: 700, flexShrink: 0 }}>{doc.type.toUpperCase()}</span>}
+                    <button type="button" onClick={() => removeDoc(doc.id)} title="Remover anexo"
+                      style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 17, lineHeight: 1, padding: 0, flexShrink: 0 }}>×</button>
                   </div>
                 ))}
               </div>
-              <div style={{ fontSize: 11, color: '#444', marginTop: 8 }}>
-                Os arquivos são enviados como links de acesso seguro.
-              </div>
+              <div style={{ fontSize: 11, color: '#444', marginTop: 8 }}>Os arquivos são enviados como links de acesso seguro.</div>
             </div>
           )}
 
@@ -169,22 +251,18 @@ Documentos em anexo.`
           )}
         </div>
 
-        {/* Footer */}
         <div style={{ padding: '14px 24px', borderTop: '1px solid #1c1c1c', display: 'flex', gap: 10, flexShrink: 0 }}>
           <button onClick={onClose} style={{ flex: 1, background: '#161616', border: '1px solid #222', borderRadius: 8, padding: '10px', color: '#999', fontSize: 13, cursor: 'pointer' }}>
             Cancelar
           </button>
-          <button
-            onClick={handleSend}
-            disabled={sending || !to.trim()}
+          <button onClick={handleSend} disabled={sending || !canSend}
             style={{
               flex: 2, border: 'none', borderRadius: 8, padding: '10px',
-              background: to.trim() && !sending ? '#10b981' : '#222',
-              color: to.trim() && !sending ? '#000' : '#555',
+              background: canSend && !sending ? '#10b981' : '#222',
+              color: canSend && !sending ? '#000' : '#555',
               fontSize: 13, fontWeight: 700,
-              cursor: to.trim() && !sending ? 'pointer' : 'not-allowed',
-            }}
-          >
+              cursor: canSend && !sending ? 'pointer' : 'not-allowed',
+            }}>
             {sending ? 'Enviando...' : 'Enviar →'}
           </button>
         </div>
@@ -195,7 +273,7 @@ Documentos em anexo.`
 
 /* ── Awaiting Response Modal (Step 3) ─────────────────────── */
 function AwaitingResponseModal({ analysis, onClose }: { analysis: CreditAnalysis | null; onClose: () => void }) {
-  const sent = analysis?.status === 'enviado' || analysis?.status === 'aprovado' || analysis?.status === 'reprovado' || analysis?.status === 'condicionado'
+  const sent = analysis != null && ['enviado', 'aprovado', 'reprovado', 'condicionado'].includes(analysis.status)
 
   return (
     <div style={overlayStyle} onClick={e => e.target === e.currentTarget && onClose()}>
@@ -208,11 +286,7 @@ function AwaitingResponseModal({ analysis, onClose }: { analysis: CreditAnalysis
           {sent ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: '50%',
-                  background: '#ffab4011', border: '1px solid #ffab4033',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-                }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#ffab4011', border: '1px solid #ffab4033', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
                   ⏳
                 </div>
                 <div>
@@ -266,7 +340,7 @@ function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; o
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{
                   fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 20,
-                  background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44`,
+                  background: statusColor + '22', color: statusColor, border: '1px solid ' + statusColor + '44',
                 }}>
                   {statusLabel}
                 </span>
@@ -274,36 +348,30 @@ function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; o
                   <span style={{ fontSize: 11, color: '#555' }}>{formatDate(analysis!.responded_at)}</span>
                 )}
               </div>
-
               {analysis!.approved_value != null && (
                 <div style={{ background: '#10b98111', border: '1px solid #10b98133', borderRadius: 10, padding: '14px 16px' }}>
                   <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>Valor aprovado</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: '#10b981' }}>
-                    R$ {analysis!.approved_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {'R$ ' + analysis!.approved_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                 </div>
               )}
-
               {analysis!.response_text ? (
                 <div style={{ background: '#161616', border: '1px solid #222', borderRadius: 10, padding: '14px 16px' }}>
                   <div style={{ fontSize: 11, color: '#555', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span>✉</span>
-                    <span>Email recebido</span>
+                    <span>✉</span><span>Email recebido</span>
                   </div>
                   <div style={{ fontSize: 13, color: '#f0f0f0', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
                     {analysis!.response_text}
                   </div>
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: '#555', fontStyle: 'italic' }}>
-                  Sem texto de resposta registrado.
-                </div>
+                <div style={{ fontSize: 12, color: '#555', fontStyle: 'italic' }}>Sem texto de resposta registrado.</div>
               )}
             </div>
           ) : (
             <div style={{ fontSize: 13, color: '#555', textAlign: 'center', padding: '20px 0', lineHeight: 1.6 }}>
-              Nenhum resultado disponível ainda.<br />
-              Aguardando resposta do banco.
+              Nenhum resultado disponível ainda.<br />Aguardando resposta do banco.
             </div>
           )}
         </div>
@@ -397,7 +465,7 @@ export function CreditAnalysisDropdown({ leadId, lead, creditAnalysis }: Props) 
                 <div style={{
                   width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
                   background: done ? '#10b981' : active ? '#10b98133' : '#1a1a1a',
-                  border: `1.5px solid ${done ? '#10b981' : active ? '#10b98188' : '#2a2a2a'}`,
+                  border: '1.5px solid ' + (done ? '#10b981' : active ? '#10b98188' : '#2a2a2a'),
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 11, fontWeight: 700,
                   color: done ? '#000' : active ? '#10b981' : '#444',
@@ -418,7 +486,7 @@ export function CreditAnalysisDropdown({ leadId, lead, creditAnalysis }: Props) 
           })}
 
           {hasResult && (
-            <div style={{ margin: '8px 16px 4px', padding: '8px 12px', background: `${STATUS_COLORS[analysis!.status]}11`, border: `1px solid ${STATUS_COLORS[analysis!.status]}33`, borderRadius: 8 }}>
+            <div style={{ margin: '8px 16px 4px', padding: '8px 12px', background: STATUS_COLORS[analysis!.status] + '11', border: '1px solid ' + STATUS_COLORS[analysis!.status] + '33', borderRadius: 8 }}>
               <span style={{ fontSize: 11, color: STATUS_COLORS[analysis!.status], fontWeight: 700 }}>
                 {analysis!.status.charAt(0).toUpperCase() + analysis!.status.slice(1)}
               </span>

@@ -24,7 +24,7 @@ export default async function PipelinePage() {
         <h1 style={{ fontSize: 16, fontWeight: 600 }}>Pipeline</h1>
       </div>
 
-      <div style={{ flex: 1, overflowX: 'auto', padding: 24 }}>
+      <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto', padding: 24 }}>
         <KanbanBoard initialLeads={enriched as (Lead & { doc_count: number })[]} />
       </div>
     </div>
