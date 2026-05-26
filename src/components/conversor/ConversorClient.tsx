@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import {
   imagesToPdf, mergePdfs, splitPdf, removePages, extractPages,
-  rotatePdf, addWatermark, pdfToImages, compressPdf,
+  addWatermark, pdfToImages, compressPdf,
   downloadBytes, downloadDataUrl, formatBytes,
 } from '@/lib/conversor'
 
@@ -23,7 +23,6 @@ const TOOLS = [
   { id: 'split-pdf',     label: 'Dividir PDF',     desc: 'Separa por página ou por intervalo',           category: 'organizar',    emoji: '✂️', accept: '.pdf',                             multiple: false },
   { id: 'remove-pages',  label: 'Remover páginas', desc: 'Exclui páginas específicas do PDF',            category: 'organizar',    emoji: '🗑️', accept: '.pdf',                             multiple: false },
   { id: 'extract-pages', label: 'Extrair páginas', desc: 'Salva páginas selecionadas em novo PDF',       category: 'organizar',    emoji: '📋', accept: '.pdf',                             multiple: false },
-  { id: 'rotate-pdf',    label: 'Rodar PDF',       desc: 'Rotaciona todas as páginas do PDF',            category: 'organizar',    emoji: '🔄', accept: '.pdf',                             multiple: false },
   { id: 'watermark',     label: 'Marca d\'água',   desc: 'Adiciona texto em diagonal em cada página',    category: 'organizar',    emoji: '💧', accept: '.pdf',                             multiple: false },
   { id: 'compress-pdf',  label: 'Comprimir PDF',   desc: 'Reduz o tamanho do arquivo PDF',               category: 'otimizar',     emoji: '📦', accept: '.pdf',                             multiple: false },
 ] as const
@@ -182,11 +181,6 @@ function ToolPanel({ tool, onBack }: { tool: Tool; onBack: () => void }) {
           setResult({ type: 'bytes', data, name: f.name.replace(/\.pdf$/i, '_extraido.pdf') })
           break
         }
-        case 'rotate-pdf': {
-          const data = await rotatePdf(f, rotAngle)
-          setResult({ type: 'bytes', data, name: f.name.replace(/\.pdf$/i, '_rotacionado.pdf') })
-          break
-        }
         case 'watermark': {
           if (!wmText.trim()) throw new Error('Informe o texto da marca d\'água.')
           const data = await addWatermark(f, wmText, wmOpacity)
@@ -283,20 +277,6 @@ function ToolPanel({ tool, onBack }: { tool: Tool; onBack: () => void }) {
             <div>
               <label style={labelSt}>Páginas (ex: 1, 3, 5-8)</label>
               <input style={inputSt} placeholder="1, 3, 5-8" value={pagesStr} onChange={e => setPagesStr(e.target.value)} />
-            </div>
-          )}
-
-          {tool.id === 'rotate-pdf' && (
-            <div>
-              <label style={labelSt}>Ângulo de rotação</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {([90, 180, 270] as const).map(a => (
-                  <button key={a} onClick={() => setRotAngle(a)} style={{
-                    padding: '7px 18px', borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: 'none',
-                    background: rotAngle === a ? catColor : '#1a1a1a', color: rotAngle === a ? '#000' : '#888',
-                  }}>{a}°</button>
-                ))}
-              </div>
             </div>
           )}
 
