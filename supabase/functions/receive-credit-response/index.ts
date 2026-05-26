@@ -1,7 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { Webhook } from 'https://esm.sh/svix@1.15.0'
 
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const WEBHOOK_SECRET       = Deno.env.get('RESEND_WEBHOOK_SECRET') ?? ''
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +23,7 @@ function classifyStatus(text: string): 'aprovado' | 'reprovado' | 'condicionado'
     return 'aprovado'
   if (
     lower.includes('reprovado') || lower.includes('negado') ||
-    lower.includes('recusado') || lower.includes('indeferido')
+    lower.includes('recusado')  || lower.includes('indeferido')
   ) return 'reprovado'
   return 'condicionado'
 }
@@ -30,20 +32,48 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
-  let payload: any
+  const rawBody = await req.text()
+
+  // Verifica assinatura Svix do Resend
+  if (WEBHOOK_SECRET) {
+    const svixId        = req.headers.get('svix-id') ?? ''
+    const svixTimestamp = req.headers.get('svix-timestamp') ?? ''
+    const svixSignature = req.headers.get('svix-signature') ?? ''
+
+    if (!svixId || !svixTimestamp || !svixSignature) {
+      return json({ error: 'Missing Svix headers' }, 401)
+    }
+
+    try {
+      const wh = new Webhook(WEBHOOK_SECRET)
+      wh.verify(rawBody, {
+        'svix-id':        svixId,
+        'svix-timestamp': svixTimestamp,
+        'svix-signature': svixSignature,
+      })
+    } catch {
+      return json({ error: 'Invalid signature' }, 403)
+    }
+  }
+
+  let event: any
   try {
-    payload = await req.json()
+    event = JSON.parse(rawBody)
   } catch {
     return json({ error: 'Invalid JSON' }, 400)
   }
 
-  const subject: string = payload?.subject ?? payload?.data?.subject ?? ''
-  const body: string    = payload?.text ?? payload?.data?.text ?? payload?.html ?? payload?.data?.html ?? ''
+  // Resend envia { type: 'email.received', data: { subject, text, html, from, ... } }
+  const data = event?.data ?? event
+  const subject: string = data?.subject ?? ''
+  const body: string    = data?.text ?? data?.html ?? ''
 
-  // Extrai o lead_id do assunto (formato: ID:uuid)
-  const match = (subject + ' ' + body).match(/ID:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
+  // Extrai o lead_id do assunto ou corpo (formato: ID:uuid)
+  const match = (subject + ' ' + body).match(
+    /ID:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
+  )
   if (!match) {
-    console.log('lead_id não encontrado no email. Assunto:', subject)
+    console.log('lead_id não encontrado. Assunto:', subject)
     return json({ error: 'lead_id not found in email' }, 400)
   }
 
@@ -52,7 +82,6 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-  // Verifica se existe análise registrada para esse lead
   const { data: analysis } = await supabase
     .from('credit_analyses')
     .select('id')
@@ -68,13 +97,13 @@ Deno.serve(async (req) => {
     supabase.from('credit_analyses').update({
       status,
       response_text: body.slice(0, 4000),
-      responded_at: new Date().toISOString(),
+      responded_at:  new Date().toISOString(),
     }).eq('lead_id', lead_id),
 
     supabase.from('timeline_events').insert({
       lead_id,
-      type: 'credito_respondido',
-      payload: { status, from: payload?.from ?? payload?.data?.from },
+      type:    'credito_respondido',
+      payload: { status, from: data?.from },
     }),
   ])
 
