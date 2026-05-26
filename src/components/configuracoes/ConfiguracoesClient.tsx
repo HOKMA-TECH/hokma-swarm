@@ -288,14 +288,16 @@ function NotificacoesSection() {
 }
 
 // ─── 2FA Section ──────────────────────────────────────────────────────────────
-type MfaStep = 'idle' | 'enrolling' | 'verifying' | 'disabling'
+type MfaStep = 'idle' | 'enrolling' | 'verifying' | 'confirming-disable'
 
 function MfaSection() {
   const [step, setStep] = useState<MfaStep>('idle')
   const [factor, setFactor] = useState<MfaFactor | null>(null)
   const [enrollData, setEnrollData] = useState<{ factorId: string; qrCode: string; secret: string } | null>(null)
   const [challengeId, setChallengeId] = useState<string | null>(null)
+  const [disableChallengeId, setDisableChallengeId] = useState<string | null>(null)
   const [code, setCode] = useState('')
+  const [disableCode, setDisableCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState<{ msg: string; ok: boolean } | null>(null)
   const supabase = createClient()
@@ -364,15 +366,40 @@ function MfaSection() {
     await loadFactors()
   }
 
-  async function handleDisable() {
+  async function initiateDisable() {
     if (!factor) return
     setLoading(true)
     setFeedback(null)
+    const { data, error } = await supabase.auth.mfa.challenge({ factorId: factor.id })
+    setLoading(false)
+    if (error || !data) return setFeedback({ msg: error?.message ?? 'Erro ao iniciar verificação.', ok: false })
+    setDisableChallengeId(data.id)
+    setDisableCode('')
+    setStep('confirming-disable')
+  }
+
+  async function handleDisable() {
+    if (!factor || !disableChallengeId) return
+    setLoading(true)
+    setFeedback(null)
+    // Verify TOTP code to elevate session to AAL2
+    const { error: verifyError } = await supabase.auth.mfa.verify({
+      factorId: factor.id,
+      challengeId: disableChallengeId,
+      code: disableCode.replace(/\s/g, ''),
+    })
+    if (verifyError) {
+      setLoading(false)
+      return setFeedback({ msg: 'Código inválido. Tente novamente.', ok: false })
+    }
+    // Now at AAL2 — safe to unenroll
     const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id })
     setLoading(false)
     if (error) return setFeedback({ msg: error.message, ok: false })
-    setFeedback({ msg: '2FA desativado.', ok: true })
+    setFeedback({ msg: '2FA desativado com sucesso.', ok: true })
     setFactor(null)
+    setDisableChallengeId(null)
+    setDisableCode('')
     setStep('idle')
   }
 
@@ -418,15 +445,59 @@ function MfaSection() {
 
       {step === 'idle' && factor && (
         <button
-          onClick={handleDisable} disabled={loading}
+          onClick={initiateDisable} disabled={loading}
           style={{
             background: 'transparent', color: '#ef4444', border: '1px solid #ef444444',
             borderRadius: 7, padding: '9px 18px', fontSize: 13, fontWeight: 600,
             cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1, alignSelf: 'flex-start',
           }}
         >
-          {loading ? 'Desativando…' : 'Desativar 2FA'}
+          {loading ? 'Verificando…' : 'Desativar 2FA'}
         </button>
+      )}
+
+      {/* Confirm disable: require current TOTP code to reach AAL2 */}
+      {step === 'confirming-disable' && factor && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{
+            fontSize: 12, color: '#aaa', lineHeight: 1.7,
+            padding: '10px 14px', background: '#1a0a0a', border: '1px solid #ef444433', borderRadius: 8,
+          }}>
+            Para desativar o 2FA, confirme sua identidade inserindo o código atual do seu aplicativo autenticador.
+          </div>
+          <Field label="Código do autenticador">
+            <input
+              style={{ ...inputStyle, letterSpacing: '0.2em', fontSize: 16, textAlign: 'center' }}
+              type="text" inputMode="numeric" maxLength={6}
+              placeholder="000 000"
+              value={disableCode}
+              onChange={e => setDisableCode(e.target.value.replace(/\D/g, ''))}
+            />
+          </Field>
+          {feedback && <Feedback {...feedback} />}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={handleDisable} disabled={loading || disableCode.length < 6}
+              style={{
+                background: '#ef4444', color: '#fff', border: 'none', borderRadius: 7,
+                padding: '9px 18px', fontSize: 13, fontWeight: 600,
+                cursor: loading || disableCode.length < 6 ? 'not-allowed' : 'pointer',
+                opacity: loading || disableCode.length < 6 ? 0.6 : 1,
+              }}
+            >
+              {loading ? 'Desativando…' : 'Confirmar desativação'}
+            </button>
+            <button
+              onClick={() => { setStep('idle'); setDisableCode(''); setFeedback(null) }}
+              style={{
+                background: 'none', border: '1px solid #2a2a2a', borderRadius: 7,
+                color: '#666', fontSize: 13, cursor: 'pointer', padding: '9px 14px',
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
 
       {/* QR + verify step */}
