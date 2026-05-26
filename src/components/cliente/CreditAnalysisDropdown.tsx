@@ -368,8 +368,96 @@ function AwaitingResponseModal({ analysis, onClose }: { analysis: CreditAnalysis
   )
 }
 
+/* ── Attachment Preview Popup ─────────────────────────────── */
+function AttachmentPopup({
+  att,
+  onClose,
+}: {
+  att: { filename: string; content_type: string; url?: string }
+  onClose: () => void
+}) {
+  const isImage = att.content_type?.startsWith('image/')
+  const isPdf   = att.content_type === 'application/pdf'
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: '#000000cc', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{ ...modalStyle, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 16 }}>{isImage ? '🖼' : '📎'}</span>
+            <span style={{ fontSize: 13, color: '#f0f0f0', fontWeight: 600, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {att.filename}
+            </span>
+            {att.content_type && (
+              <span style={{ fontSize: 10, color: '#555' }}>{att.content_type.split('/')[1]?.toUpperCase()}</span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {att.url && (
+              <a
+                href={att.url}
+                download={att.filename}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: 12, color: '#10b981', background: '#10b98122', border: '1px solid #10b98144',
+                  borderRadius: 6, padding: '5px 12px', textDecoration: 'none', fontWeight: 600,
+                }}
+              >
+                Baixar
+              </a>
+            )}
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
+          {att.url && isImage ? (
+            <img
+              src={att.url}
+              alt={att.filename}
+              style={{ maxWidth: '80vw', maxHeight: '75vh', objectFit: 'contain', display: 'block' }}
+            />
+          ) : att.url && isPdf ? (
+            <iframe
+              src={att.url}
+              title={att.filename}
+              style={{ width: '80vw', height: '75vh', border: 'none', background: '#fff' }}
+            />
+          ) : att.url ? (
+            <div style={{ padding: 40, textAlign: 'center' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>📄</div>
+              <div style={{ fontSize: 14, color: '#f0f0f0', marginBottom: 8 }}>{att.filename}</div>
+              <a href={att.url} download={att.filename} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 13, color: '#10b981', textDecoration: 'underline' }}>
+                Clique para baixar
+              </a>
+            </div>
+          ) : (
+            <div style={{ padding: 40, textAlign: 'center' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>{isImage ? '🖼' : '📎'}</div>
+              <div style={{ fontSize: 14, color: '#f0f0f0', marginBottom: 6 }}>{att.filename}</div>
+              <div style={{ fontSize: 12, color: '#555', lineHeight: 1.6, maxWidth: 280 }}>
+                Arquivo recebido pelo banco.<br />
+                Preview disponível após configurar inbound no domínio.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ── Result Modal (Step 4) ────────────────────────────────── */
 function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; onClose: () => void }) {
+  const [previewAtt, setPreviewAtt] = useState<{ filename: string; content_type: string; url?: string } | null>(null)
+
   const hasResult = analysis != null && ['aprovado', 'reprovado', 'condicionado', 'recebido'].includes(analysis.status)
   const statusColor = hasResult ? (STATUS_COLORS[analysis!.status] ?? '#555') : '#555'
   const statusLabel = hasResult
@@ -377,121 +465,133 @@ function ResultModal({ analysis, onClose }: { analysis: CreditAnalysis | null; o
     : ''
 
   return (
-    <div style={overlayStyle} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ ...modalStyle, width: 560, maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>Resultado da Análise</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
-        </div>
-        <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-          {hasResult ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <>
+      {previewAtt && <AttachmentPopup att={previewAtt} onClose={() => setPreviewAtt(null)} />}
 
-              {/* Status + data */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{
-                  fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 20,
-                  background: statusColor + '22', color: statusColor, border: '1px solid ' + statusColor + '44',
-                }}>
-                  {statusLabel}
-                </span>
-                {analysis!.responded_at && (
-                  <span style={{ fontSize: 11, color: '#555' }}>{formatDate(analysis!.responded_at)}</span>
+      <div style={overlayStyle} onClick={e => e.target === e.currentTarget && onClose()}>
+        <div style={{ ...modalStyle, width: 560, maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>Resultado da Análise</div>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+          </div>
+          <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+            {hasResult ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Status + data */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{
+                    fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 20,
+                    background: statusColor + '22', color: statusColor, border: '1px solid ' + statusColor + '44',
+                  }}>
+                    {statusLabel}
+                  </span>
+                  {analysis!.responded_at && (
+                    <span style={{ fontSize: 11, color: '#555' }}>{formatDate(analysis!.responded_at)}</span>
+                  )}
+                </div>
+
+                {/* Valor aprovado */}
+                {analysis!.approved_value != null && (
+                  <div style={{ background: '#10b98111', border: '1px solid #10b98133', borderRadius: 10, padding: '14px 16px' }}>
+                    <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>Valor aprovado</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: '#10b981' }}>
+                      {'R$ ' + analysis!.approved_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
                 )}
-              </div>
 
-              {/* Valor aprovado */}
-              {analysis!.approved_value != null && (
-                <div style={{ background: '#10b98111', border: '1px solid #10b98133', borderRadius: 10, padding: '14px 16px' }}>
-                  <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>Valor aprovado</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#10b981' }}>
-                    {'R$ ' + analysis!.approved_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                {/* Cabeçalho do email */}
+                <div style={{ background: '#161616', border: '1px solid #222', borderRadius: 10, overflow: 'hidden' }}>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 14, opacity: 0.5 }}>✉</span>
+                    <span style={{ fontSize: 11, color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Email recebido</span>
                   </div>
-                </div>
-              )}
-
-              {/* Cabeçalho do email */}
-              <div style={{ background: '#161616', border: '1px solid #222', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #1c1c1c', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 14, opacity: 0.5 }}>✉</span>
-                  <span style={{ fontSize: 11, color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Email recebido</span>
-                </div>
-                <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {analysis!.response_from && (
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: 11, color: '#555', minWidth: 52, flexShrink: 0, paddingTop: 1 }}>De:</span>
-                      <span style={{ fontSize: 12, color: '#aaa', wordBreak: 'break-all' }}>{analysis!.response_from}</span>
-                    </div>
-                  )}
-                  {analysis!.response_subject && (
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: 11, color: '#555', minWidth: 52, flexShrink: 0, paddingTop: 1 }}>Assunto:</span>
-                      <span style={{ fontSize: 12, color: '#f0f0f0', fontWeight: 600, lineHeight: 1.4 }}>
-                        {/* Remove o [ref:uuid] do assunto exibido */}
-                        {analysis!.response_subject.replace(/\s*\[ref:[^\]]+\]/gi, '').trim()}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Corpo do email */}
-              {analysis!.response_text ? (
-                <div style={{ background: '#161616', border: '1px solid #222', borderRadius: 10, padding: '14px 16px' }}>
-                  <div style={{ fontSize: 11, color: '#555', marginBottom: 10 }}>Mensagem</div>
-                  <div style={{ fontSize: 13, color: '#f0f0f0', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                    {analysis!.response_text}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ fontSize: 12, color: '#555', fontStyle: 'italic', padding: '4px 0' }}>
-                  Sem texto no corpo da mensagem.
-                </div>
-              )}
-
-              {/* Anexos */}
-              {analysis!.response_attachments && analysis!.response_attachments.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 11, color: '#555', marginBottom: 8 }}>
-                    Anexos ({analysis!.response_attachments.length})
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {analysis!.response_attachments.map((att, i) => (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        background: '#161616', border: '1px solid #2a2a2a', borderRadius: 8, padding: '8px 12px',
-                      }}>
-                        <span style={{ fontSize: 14 }}>
-                          {att.content_type?.startsWith('image/') ? '🖼' : '📎'}
-                        </span>
-                        <span style={{ flex: 1, fontSize: 12, color: '#f0f0f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {att.filename}
-                        </span>
-                        {att.content_type && (
-                          <span style={{ fontSize: 10, color: '#555', flexShrink: 0 }}>
-                            {att.content_type.split('/')[1]?.toUpperCase()}
-                          </span>
-                        )}
+                  <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {analysis!.response_from && (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                        <span style={{ fontSize: 11, color: '#555', minWidth: 52, flexShrink: 0, paddingTop: 1 }}>De:</span>
+                        <span style={{ fontSize: 12, color: '#aaa', wordBreak: 'break-all' }}>{analysis!.response_from}</span>
                       </div>
-                    ))}
+                    )}
+                    {analysis!.response_subject && (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                        <span style={{ fontSize: 11, color: '#555', minWidth: 52, flexShrink: 0, paddingTop: 1 }}>Assunto:</span>
+                        <span style={{ fontSize: 12, color: '#f0f0f0', fontWeight: 600, lineHeight: 1.4 }}>
+                          {analysis!.response_subject.replace(/\s*\[ref:[^\]]+\]/gi, '').trim()}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
 
-            </div>
-          ) : (
-            <div style={{ fontSize: 13, color: '#555', textAlign: 'center', padding: '20px 0', lineHeight: 1.6 }}>
-              Nenhum resultado disponível ainda.<br />Aguardando resposta do banco.
-            </div>
-          )}
-        </div>
-        <div style={{ padding: '14px 24px', borderTop: '1px solid #1c1c1c', flexShrink: 0 }}>
-          <button onClick={onClose} style={{ width: '100%', background: '#161616', border: '1px solid #222', borderRadius: 8, padding: '10px', color: '#999', fontSize: 13, cursor: 'pointer' }}>
-            Fechar
-          </button>
+                {/* Corpo do email */}
+                {analysis!.response_text ? (
+                  <div style={{ background: '#161616', border: '1px solid #222', borderRadius: 10, padding: '14px 16px' }}>
+                    <div style={{ fontSize: 11, color: '#555', marginBottom: 10 }}>Mensagem</div>
+                    <div style={{ fontSize: 13, color: '#f0f0f0', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                      {analysis!.response_text}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: '#555', fontStyle: 'italic', padding: '4px 0' }}>
+                    Sem texto no corpo da mensagem.
+                  </div>
+                )}
+
+                {/* Anexos clicáveis */}
+                {analysis!.response_attachments && analysis!.response_attachments.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, color: '#555', marginBottom: 8 }}>
+                      Anexos ({analysis!.response_attachments.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {analysis!.response_attachments.map((att, i) => {
+                        const isImg = att.content_type?.startsWith('image/')
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => setPreviewAtt(att)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                              background: '#161616', border: '1px solid #2a2a2a', borderRadius: 8, padding: '9px 12px',
+                              cursor: 'pointer', transition: 'border-color 0.15s',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.borderColor = '#10b98155')}
+                            onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2a2a')}
+                          >
+                            <span style={{ fontSize: 14, flexShrink: 0 }}>{isImg ? '🖼' : '📎'}</span>
+                            <span style={{ flex: 1, fontSize: 12, color: '#f0f0f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {att.filename}
+                            </span>
+                            {att.content_type && (
+                              <span style={{ fontSize: 10, color: '#555', flexShrink: 0, marginRight: 4 }}>
+                                {att.content_type.split('/')[1]?.toUpperCase()}
+                              </span>
+                            )}
+                            <span style={{ fontSize: 11, color: '#333', flexShrink: 0 }}>›</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: '#555', textAlign: 'center', padding: '20px 0', lineHeight: 1.6 }}>
+                Nenhum resultado disponível ainda.<br />Aguardando resposta do banco.
+              </div>
+            )}
+          </div>
+          <div style={{ padding: '14px 24px', borderTop: '1px solid #1c1c1c', flexShrink: 0 }}>
+            <button onClick={onClose} style={{ width: '100%', background: '#161616', border: '1px solid #222', borderRadius: 8, padding: '10px', color: '#999', fontSize: 13, cursor: 'pointer' }}>
+              Fechar
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

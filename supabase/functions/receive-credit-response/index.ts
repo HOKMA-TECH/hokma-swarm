@@ -35,48 +35,30 @@ Deno.serve(async (req) => {
 
   const rawBody = await req.text()
 
-  // Verifica assinatura Svix do Resend
   if (WEBHOOK_SECRET) {
     const svixId        = req.headers.get('svix-id') ?? ''
     const svixTimestamp = req.headers.get('svix-timestamp') ?? ''
     const svixSignature = req.headers.get('svix-signature') ?? ''
-
-    if (!svixId || !svixTimestamp || !svixSignature) {
+    if (!svixId || !svixTimestamp || !svixSignature)
       return json({ error: 'Missing Svix headers' }, 401)
-    }
-
     try {
       const wh = new Webhook(WEBHOOK_SECRET)
-      wh.verify(rawBody, {
-        'svix-id':        svixId,
-        'svix-timestamp': svixTimestamp,
-        'svix-signature': svixSignature,
-      })
+      wh.verify(rawBody, { 'svix-id': svixId, 'svix-timestamp': svixTimestamp, 'svix-signature': svixSignature })
     } catch {
       return json({ error: 'Invalid signature' }, 403)
     }
   }
 
   let event: any
-  try {
-    event = JSON.parse(rawBody)
-  } catch {
-    return json({ error: 'Invalid JSON' }, 400)
-  }
+  try { event = JSON.parse(rawBody) } catch { return json({ error: 'Invalid JSON' }, 400) }
 
-  // Log completo para diagnóstico — remover após confirmar campos do Resend
-  console.log('RESEND_PAYLOAD_KEYS:', JSON.stringify(Object.keys(event?.data ?? {})))
-  console.log('RESEND_DATA_SAMPLE:', JSON.stringify({
-    subject: event?.data?.subject,
-    from:    event?.data?.from,
-    hasText: !!event?.data?.text,
-    hasHtml: !!event?.data?.html,
-    textLen: (event?.data?.text ?? '').length,
-    htmlLen: (event?.data?.html ?? '').length,
-    allKeys: Object.keys(event?.data ?? {}),
+  console.log('RESEND_KEYS:', JSON.stringify(Object.keys(event?.data ?? {})))
+  console.log('RESEND_BODY:', JSON.stringify({
+    hasText: !!event?.data?.text, textLen: (event?.data?.text ?? '').length,
+    hasHtml: !!event?.data?.html, attachCount: (event?.data?.attachments ?? []).length,
   }))
 
-  const data = event?.data ?? event
+  const data           = event?.data ?? event
   const subject: string    = data?.subject ?? ''
   const fromEmail: string  = data?.from ?? ''
   const attachments: any[] = data?.attachments ?? []
@@ -84,15 +66,10 @@ Deno.serve(async (req) => {
 
   // Tenta múltiplos campos onde o Resend pode enviar o corpo
   let body: string =
-    data?.text       ??
-    data?.html       ??
-    data?.body       ??
-    data?.plain_text ??
-    data?.text_body  ??
-    data?.html_body  ??
-    ''
+    data?.text ?? data?.html ?? data?.body ??
+    data?.plain_text ?? data?.text_body ?? data?.html_body ?? ''
 
-  // Fallback: tenta buscar corpo via Resend API com email_id
+  // Fallback: tenta buscar corpo via Resend API GET /emails/{id}
   if (!body && emailId && RESEND_API_KEY) {
     try {
       const r = await fetch(`https://api.resend.com/emails/${emailId}`, {
@@ -101,12 +78,12 @@ Deno.serve(async (req) => {
       if (r.ok) {
         const full = await r.json()
         body = full.text ?? full.html ?? ''
-        if (body) console.log('Corpo obtido via Resend API GET /emails')
+        if (body) console.log('Corpo obtido via Resend API')
       }
-    } catch { /* se falhar, segue sem corpo */ }
+    } catch { /* segue sem corpo */ }
   }
 
-  // Extrai o lead_id do assunto ou corpo (formatos: [ref:uuid] ou ID:uuid)
+  // Extrai o lead_id do assunto ou corpo
   const match = (subject + ' ' + body).match(
     /(?:\[ref:|ID:)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]?/i
   )
@@ -115,32 +92,39 @@ Deno.serve(async (req) => {
     return json({ error: 'lead_id not found in email' }, 400)
   }
 
-  const lead_id = match[1]
-
-  // Só classifica se o corpo tiver conteúdo; senão marca como 'recebido'
+  const lead_id     = match[1]
   const bodyTrimmed = body.trim()
-  const status = bodyTrimmed
-    ? classifyStatus(subject + ' ' + bodyTrimmed)
-    : 'recebido'
+  const status      = bodyTrimmed ? classifyStatus(subject + ' ' + bodyTrimmed) : 'recebido'
 
   console.log(`lead_id: ${lead_id} | status: ${status} | temCorpo: ${!!bodyTrimmed}`)
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
   const { data: analysis } = await supabase
-    .from('credit_analyses')
-    .select('id')
-    .eq('lead_id', lead_id)
-    .maybeSingle()
+    .from('credit_analyses').select('id').eq('lead_id', lead_id).maybeSingle()
+  if (!analysis) return json({ error: 'analysis not found' }, 404)
 
-  if (!analysis) {
-    console.log('credit_analysis não encontrada para lead:', lead_id)
-    return json({ error: 'analysis not found' }, 404)
+  // Processa anexos: se vier com content base64 (inbound custom), faz upload no Storage
+  const attachmentsMeta: { filename: string; content_type: string; url?: string }[] = []
+  for (const att of attachments.filter((a: any) => a.filename)) {
+    const meta: { filename: string; content_type: string; url?: string } = {
+      filename:     att.filename,
+      content_type: att.content_type ?? '',
+    }
+    if (att.content) {
+      try {
+        const filePath = `responses/${lead_id}/${Date.now()}_${att.filename}`
+        const bytes    = Uint8Array.from(atob(att.content), (c) => c.charCodeAt(0))
+        const blob     = new Blob([bytes], { type: att.content_type ?? 'application/octet-stream' })
+        const { error } = await supabase.storage.from('documentos').upload(filePath, blob, { upsert: true })
+        if (!error) {
+          const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(filePath)
+          meta.url = urlData.publicUrl
+        }
+      } catch { /* ignora erro de upload */ }
+    }
+    attachmentsMeta.push(meta)
   }
-
-  const attachmentsMeta = attachments
-    .filter((a: any) => a.filename)
-    .map((a: any) => ({ filename: a.filename, content_type: a.content_type ?? '' }))
 
   await Promise.all([
     supabase.from('credit_analyses').update({
