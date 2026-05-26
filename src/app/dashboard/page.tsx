@@ -8,7 +8,7 @@ import { AgendaWeekDropdown } from '@/components/dashboard/AgendaWeekDropdown'
 import { NotificationBell } from '@/components/dashboard/NotificationBell'
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector'
 import {
-  format, subDays, startOfWeek, endOfWeek,
+  format, startOfWeek, endOfWeek,
   subMonths, addDays, addWeeks, addMonths,
 } from 'date-fns'
 import type { Stage } from '@/types/database'
@@ -25,7 +25,6 @@ export default async function DashboardPage({
 
   const supabase = await createClient()
   const today    = new Date()
-  const todayStr = format(today, 'yyyy-MM-dd')
   const weekStart = startOfWeek(today, { weekStartsOn: 1 }).toISOString()
   const weekEnd   = endOfWeek(today, { weekStartsOn: 1 }).toISOString()
 
@@ -61,7 +60,6 @@ export default async function DashboardPage({
   const periodLabel = periodLabels[period]
 
   const [
-    { count: leadsHoje },
     { count: emAtendimento },
     { count: concluidos },
     { data: vgvData },
@@ -70,9 +68,6 @@ export default async function DashboardPage({
     { data: recentLeads },
     { data: weekAppointments },
   ] = await Promise.all([
-    // Leads criados hoje (fixo — não muda com período)
-    supabase.from('leads').select('*', { count: 'exact', head: true })
-      .gte('created_at', `${todayStr}T00:00:00`),
     // Em atendimento: estado atual (não muda com período)
     supabase.from('leads').select('*', { count: 'exact', head: true })
       .not('stage', 'in', '("concluido","desistencia","reprovado")'),
@@ -180,7 +175,7 @@ export default async function DashboardPage({
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-        <KpiCard label="Leads" value={leadsHoje ?? 0} sub="hoje" />
+        <KpiCard label="Leads" value={(dailyRaw ?? []).length} sub={periodLabel} />
         <KpiCard label="Em Atendimento" value={emAtendimento ?? 0} />
         <KpiCard label="Concluídos" value={concluidos ?? 0} sub={periodLabel} />
         <KpiCard label="Fechamento" value={vgvFormatted} sub={`${concluidos ?? 0} pasta${(concluidos ?? 0) !== 1 ? 's' : ''} • ${periodLabel}`} highlight />
