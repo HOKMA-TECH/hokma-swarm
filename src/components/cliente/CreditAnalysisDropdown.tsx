@@ -187,9 +187,15 @@ function ComposeEmailModal({
 
   const [subject, setSubject] = useState(() => {
     const empreend = lead.empreendimento ?? lead.tipo_imovel ?? 'Não informado'
-    const extras = (lead.proponentes ?? []).map((p: any) => p.nome).filter(Boolean)
-    const todosNomes = [lead.nome, ...extras].join(' + ')
-    return 'HOKMA SWARM | SOLICITO ANÁLISE | ' + empreend + ' | ' + todosNomes
+    const fmt = (nome: string | null | undefined, cpf: string | null | undefined) => {
+      const n = nome ?? 'Não informado'
+      return cpf ? `${n} (${cpf})` : n
+    }
+    const proponentes = [
+      fmt(lead.nome, lead.cpf),
+      ...(lead.proponentes ?? []).map((p: any) => fmt(p.nome, p.cpf)),
+    ]
+    return 'HOKMA SWARM | SOLICITO ANÁLISE | ' + empreend + ' | ' + proponentes.join(' | ')
   })
   const [body, setBody] = useState(() => buildEmailBody(lead))
   const [sending, setSending] = useState(false)
@@ -368,28 +374,40 @@ function AwaitingResponseModal({ analysis, onClose }: { analysis: CreditAnalysis
   )
 }
 
-/* ── PDF Viewer: tenta blob URL; se fetch falhar (ex: CORS), usa URL direta ── */
+/* ── PDF Viewer: blob com MIME forçado + iframe (mais confiável que embed) ── */
 function PdfViewer({ url }: { url: string }) {
-  const [embedSrc, setEmbedSrc] = useState<string | null>(null)
+  const [iframeSrc, setIframeSrc] = useState<string | null>(null)
+  const [failed, setFailed]       = useState(false)
 
   useEffect(() => {
     let blobUrl: string | null = null
     fetch(url)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob() })
-      .then(blob => { blobUrl = URL.createObjectURL(blob); setEmbedSrc(blobUrl) })
-      .catch(e => {
-        console.warn('PDF blob fetch failed, using direct URL:', e.message)
-        setEmbedSrc(url)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer() })
+      .then(buf => {
+        // Força MIME application/pdf independente do Content-Type da resposta
+        const blob = new Blob([buf], { type: 'application/pdf' })
+        blobUrl = URL.createObjectURL(blob)
+        setIframeSrc(blobUrl)
       })
+      .catch(e => { console.warn('PDF fetch failed:', e.message); setFailed(true) })
     return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
   }, [url])
 
-  if (!embedSrc) return (
-    <div style={{ padding: 40, textAlign: 'center', color: '#555', fontSize: 13 }}>Carregando...</div>
+  if (failed) return (
+    <div style={{ padding: 48, textAlign: 'center' }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
+      <div style={{ fontSize: 13, color: '#aaa', marginBottom: 16 }}>Não foi possível carregar o PDF.</div>
+      <a href={url} download
+        style={{ fontSize: 13, color: '#10b981', background: '#10b98122', border: '1px solid #10b98144', borderRadius: 8, padding: '9px 18px', textDecoration: 'none', fontWeight: 600 }}>
+        Baixar ↓
+      </a>
+    </div>
+  )
+  if (!iframeSrc) return (
+    <div style={{ padding: 40, textAlign: 'center', color: '#555', fontSize: 13 }}>Carregando PDF...</div>
   )
   return (
-    <embed src={embedSrc} type="application/pdf"
-      style={{ width: '80vw', height: '76vh', display: 'block' }} />
+    <iframe src={iframeSrc} title="PDF" style={{ width: '80vw', height: '76vh', border: 'none', display: 'block' }} />
   )
 }
 
