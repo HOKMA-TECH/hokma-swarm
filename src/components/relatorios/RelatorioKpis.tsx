@@ -7,11 +7,12 @@ interface Kpi {
   value: string | number
   delta: string
   up: boolean
+  highlight?: boolean
 }
 
-function KpiItem({ k, i }: { k: Kpi; i: number }) {
+function KpiItem({ k }: { k: Kpi }) {
   const [hovered, setHovered] = useState(false)
-  const highlight = i === 2
+  const highlight = !!k.highlight
 
   return (
     <div
@@ -19,7 +20,7 @@ function KpiItem({ k, i }: { k: Kpi; i: number }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        animationDelay: `${i * 60}ms`,
+        animationDelay: '0ms',
         background: highlight
           ? 'linear-gradient(135deg, #10b98122 0%, #0d1f1a 50%, #111 100%)'
           : hovered ? 'linear-gradient(135deg, #10b98108, #111)' : '#111',
@@ -52,8 +53,8 @@ function KpiItem({ k, i }: { k: Kpi; i: number }) {
 
 export function RelatorioKpis({ kpis }: { kpis: Kpi[] }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
-      {kpis.map((k, i) => <KpiItem key={i} k={k} i={i} />)}
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${kpis.length}, 1fr)`, gap: 14 }}>
+      {kpis.map((k, i) => <KpiItem key={i} k={k} />)}
     </div>
   )
 }

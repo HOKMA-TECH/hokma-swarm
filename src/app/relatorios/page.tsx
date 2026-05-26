@@ -56,7 +56,7 @@ export default async function RelatoriosPage({
   const current = getPeriodRange(period, today, params.from, params.to)
   const prev = getPrevPeriodRange(current)
 
-  const [{ data: rawLeads }, { data: rawPrev }] = await Promise.all([
+  const [{ data: rawLeads }, { data: rawPrev }, { data: vgvData }, { data: prevVgvData }] = await Promise.all([
     supabase
       .from('leads')
       .select('stage, campaign_source, loss_reason, created_at, updated_at')
@@ -67,6 +67,18 @@ export default async function RelatoriosPage({
       .select('stage, campaign_source')
       .gte('created_at', prev.from.toISOString())
       .lte('created_at', prev.to.toISOString()),
+    supabase
+      .from('leads')
+      .select('vgv')
+      .eq('stage', 'concluido')
+      .gte('updated_at', current.from.toISOString())
+      .lte('updated_at', current.to.toISOString()),
+    supabase
+      .from('leads')
+      .select('vgv')
+      .eq('stage', 'concluido')
+      .gte('updated_at', prev.from.toISOString())
+      .lte('updated_at', prev.to.toISOString()),
   ])
 
   const leads = rawLeads ?? []
@@ -90,12 +102,22 @@ export default async function RelatoriosPage({
     ? Math.round(closedLeads.reduce((s, l) => s + differenceInDays(new Date(l.updated_at!), new Date(l.created_at)), 0) / closedLeads.length)
     : 0
 
+  // VGV
+  const vgvTotal     = (vgvData     ?? []).reduce((s, r: any) => s + (r.vgv ?? 0), 0)
+  const prevVgvTotal = (prevVgvData ?? []).reduce((s, r: any) => s + (r.vgv ?? 0), 0)
+  const vgvFormatted = vgvTotal >= 1_000_000
+    ? 'R$ ' + (vgvTotal / 1_000_000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'M'
+    : vgvTotal >= 1_000
+    ? 'R$ ' + (vgvTotal / 1_000).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + 'k'
+    : 'R$ ' + vgvTotal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+
   const kpis = [
-    { label: 'Leads recebidos', value: total, ...calcDelta(total, prevTotal) },
-    { label: 'Em atendimento', value: atendimento, ...calcDelta(atendimento, prevAtendimento) },
-    { label: 'Fechamentos', value: fechamentos, ...calcDelta(fechamentos, prevFechamentos) },
-    { label: 'Taxa de conversão', value: `${taxa.toFixed(1)}%`, ...calcDelta(taxa, prevTaxa) },
-    { label: 'Tempo médio', value: avgDays > 0 ? `${avgDays}d` : '—', delta: '—', up: true },
+    { label: 'Leads recebidos',  value: total,          ...calcDelta(total,       prevTotal)       },
+    { label: 'Em atendimento',   value: atendimento,    ...calcDelta(atendimento, prevAtendimento) },
+    { label: 'Concluídos',       value: fechamentos,    ...calcDelta(fechamentos, prevFechamentos) },
+    { label: 'Fechamento',       value: vgvFormatted,   ...calcDelta(vgvTotal,    prevVgvTotal), highlight: true },
+    { label: 'Taxa de conversão',value: `${taxa.toFixed(1)}%`, ...calcDelta(taxa, prevTaxa) },
+    { label: 'Tempo médio',      value: avgDays > 0 ? `${avgDays}d` : '—', delta: '—', up: true },
   ]
 
   // ── Line chart ───────────────────────────────────────────────────────
