@@ -152,16 +152,14 @@ export default function LoginPage() {
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <Turnstile
-                ref={turnstileRef}
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-                onSuccess={token => setCaptchaToken(token)}
-                onExpire={() => setCaptchaToken(null)}
-                onError={() => { setCaptchaToken(null); setError('Erro na verificação de segurança. Recarregue a página.') }}
-                options={{ theme: 'dark', size: 'normal' }}
-              />
-            </div>
+            <Turnstile
+              ref={turnstileRef}
+              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+              onSuccess={token => setCaptchaToken(token)}
+              onExpire={() => setCaptchaToken(null)}
+              onError={() => { setCaptchaToken(null); setError('Erro na verificação de segurança. Recarregue a página.') }}
+              options={{ theme: 'dark', size: 'invisible' }}
+            />
 
             {error && <p style={{ color: '#ef5350', fontSize: 12, margin: 0 }}>{error}</p>}
             <button
