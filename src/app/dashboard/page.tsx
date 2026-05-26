@@ -75,7 +75,7 @@ export default async function DashboardPage({
       .gte('created_at', `${todayStr}T00:00:00`),
     // Em atendimento: estado atual (não muda com período)
     supabase.from('leads').select('*', { count: 'exact', head: true })
-      .not('stage', 'in', '("concluido","desistencia")'),
+      .not('stage', 'in', '("concluido","desistencia","reprovado")'),
     // Concluídos no período
     supabase.from('leads').select('*', { count: 'exact', head: true })
       .eq('stage', 'concluido')

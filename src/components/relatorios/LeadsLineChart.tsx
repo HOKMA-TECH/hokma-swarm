@@ -7,6 +7,8 @@ interface Props {
 }
 
 export function LeadsLineChart({ data }: Props) {
+  const xInterval = data.length <= 14 ? 0 : Math.ceil((data.length - 1) / 9) - 1
+
   return (
     <div style={{ background: '#111', border: '1px solid #222', borderRadius: 12, padding: 20, flex: 2 }}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Leads por dia</div>
@@ -19,7 +21,7 @@ export function LeadsLineChart({ data }: Props) {
               <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
             </linearGradient>
           </defs>
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#555' }} axisLine={false} tickLine={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#555' }} axisLine={false} tickLine={false} interval={xInterval} />
           <YAxis tick={{ fontSize: 10, fill: '#555' }} axisLine={false} tickLine={false} />
           <Tooltip contentStyle={{ background: '#161616', border: '1px solid #222', borderRadius: 8, fontSize: 12 }} />
           <Area type="monotone" dataKey="count" name="Leads" stroke="#10b981" strokeWidth={2.5} fill="url(#greenGrad)" dot={false} activeDot={{ r: 4, fill: '#10b981' }} />

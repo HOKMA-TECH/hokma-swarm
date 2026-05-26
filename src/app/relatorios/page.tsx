@@ -61,7 +61,12 @@ export default async function RelatoriosPage({
   const current = getPeriodRange(period, today, params.from, params.to)
   const prev = getPrevPeriodRange(current)
 
-  const [{ data: rawLeads }, { data: rawPrev }] = await Promise.all([
+  const [
+    { data: rawLeads },
+    { data: rawPrev },
+    { data: concludedCurrent },
+    { data: concludedPrev },
+  ] = await Promise.all([
     supabase
       .from('leads')
       .select('stage, campaign_source, loss_reason, created_at, updated_at, vgv, regiao_interesse')
@@ -72,6 +77,19 @@ export default async function RelatoriosPage({
       .select('stage, campaign_source, vgv')
       .gte('created_at', prev.from.toISOString())
       .lte('created_at', prev.to.toISOString()),
+    // Leads movidos para concluido NO período (via updated_at) — igual ao dashboard
+    supabase
+      .from('leads')
+      .select('vgv')
+      .eq('stage', 'concluido')
+      .gte('updated_at', current.from.toISOString())
+      .lte('updated_at', current.to.toISOString()),
+    supabase
+      .from('leads')
+      .select('vgv')
+      .eq('stage', 'concluido')
+      .gte('updated_at', prev.from.toISOString())
+      .lte('updated_at', prev.to.toISOString()),
   ])
 
   const leads = rawLeads ?? []
@@ -84,8 +102,9 @@ export default async function RelatoriosPage({
   const atendimento = leads.filter(l => !['concluido', 'desistencia', 'reprovado'].includes(l.stage)).length
   const prevAtendimento = prevLeads.filter(l => !['concluido', 'desistencia', 'reprovado'].includes(l.stage)).length
 
-  const fechamentos = leads.filter(l => l.stage === 'concluido').length
-  const prevFechamentos = prevLeads.filter(l => l.stage === 'concluido').length
+  // Concluídos = leads movidos para 'concluido' NO período (via updated_at) — igual ao dashboard
+  const fechamentos     = concludedCurrent?.length ?? 0
+  const prevFechamentos = concludedPrev?.length ?? 0
 
   const taxa = total > 0 ? (fechamentos / total) * 100 : 0
   const prevTaxa = prevTotal > 0 ? (prevFechamentos / prevTotal) * 100 : 0
@@ -95,9 +114,9 @@ export default async function RelatoriosPage({
     ? Math.round(closedLeads.reduce((s, l) => s + differenceInDays(new Date(l.updated_at!), new Date(l.created_at)), 0) / closedLeads.length)
     : 0
 
-  // VGV
-  const vgvTotal     = leads.filter(l => l.stage === 'concluido').reduce((s, l: any) => s + (l.vgv ?? 0), 0)
-  const prevVgvTotal = prevLeads.filter(l => l.stage === 'concluido').reduce((s, l: any) => s + (l.vgv ?? 0), 0)
+  // VGV — usa concludedCurrent (updated_at) igual ao dashboard
+  const vgvTotal     = (concludedCurrent ?? []).reduce((s, r: any) => s + (r.vgv ?? 0), 0)
+  const prevVgvTotal = (concludedPrev    ?? []).reduce((s, r: any) => s + (r.vgv ?? 0), 0)
   const vgvFormatted = vgvTotal >= 1_000_000
     ? 'R$ ' + (vgvTotal / 1_000_000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'M'
     : vgvTotal >= 1_000
@@ -194,7 +213,8 @@ export default async function RelatoriosPage({
   }, {})
   const lineData = days.map(day => ({ date: format(day, 'dd/MM'), count: dailyCounts[format(day, 'dd/MM')] ?? 0 }))
 
-  // ── Funnel ───────────────────────────────────────────────────────────
+  // ── Funnel (usa leads criados no período para mostrar o lifecycle deles) ──
+  const funnelConcluido = leads.filter(l => l.stage === 'concluido').length
   const analise = leads.filter(l => !['pendente', 'desistencia'].includes(l.stage)).length
   const aprovados = leads.filter(l => ['aprovado', 'condicionado', 'contrato', 'formularios', 'repasse', 'concluido'].includes(l.stage)).length
   const contrato = leads.filter(l => ['contrato', 'formularios', 'repasse', 'concluido'].includes(l.stage)).length
@@ -203,7 +223,7 @@ export default async function RelatoriosPage({
     { label: 'Análise', count: analise, pct: total > 0 ? (analise / total) * 100 : 0 },
     { label: 'Aprovados', count: aprovados, pct: total > 0 ? (aprovados / total) * 100 : 0 },
     { label: 'Contrato', count: contrato, pct: total > 0 ? (contrato / total) * 100 : 0 },
-    { label: 'Concluído', count: fechamentos, pct: total > 0 ? (fechamentos / total) * 100 : 0 },
+    { label: 'Concluído', count: funnelConcluido, pct: total > 0 ? (funnelConcluido / total) * 100 : 0 },
   ]
 
   // ── Origin donut ─────────────────────────────────────────────────────
