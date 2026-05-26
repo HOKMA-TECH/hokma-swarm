@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     }
 
     if (att.id && emailId && RESEND_API_KEY) {
-      const attData = await resendGet(`/attachments/${att.id}?emailId=${emailId}`)
+      const attData = await resendGet(`/emails/received/${emailId}/attachments/${att.id}`)
       const b64 = attData?.content ?? attData?.data ?? attData?.body ?? ''
       if (b64) {
         try {
