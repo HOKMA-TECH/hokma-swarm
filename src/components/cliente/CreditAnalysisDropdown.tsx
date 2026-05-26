@@ -185,9 +185,12 @@ function ComposeEmailModal({
   const [bccChips, setBccChips] = useState<string[]>([])
   const [bccInput, setBccInput] = useState('')
 
-  const [subject, setSubject] = useState(
-    'HOKMA SWARM | SOLICITO ANÁLISE | ' + (lead.empreendimento ?? lead.tipo_imovel ?? 'Não informado') + ' | ' + lead.nome + (lead.cpf ? ' | ' + lead.cpf : '')
-  )
+  const [subject, setSubject] = useState(() => {
+    const empreend = lead.empreendimento ?? lead.tipo_imovel ?? 'Não informado'
+    const extras = (lead.proponentes ?? []).map((p: any) => p.nome).filter(Boolean)
+    const todosNomes = [lead.nome, ...extras].join(' + ')
+    return 'HOKMA SWARM | SOLICITO ANÁLISE | ' + empreend + ' | ' + todosNomes
+  })
   const [body, setBody] = useState(() => buildEmailBody(lead))
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
@@ -219,7 +222,13 @@ function ComposeEmailModal({
     await supabase.from('leads').update({ stage: 'em_analise' }).eq('id', lead.id)
     const { data } = await supabase.from('credit_analyses').select('*').eq('lead_id', lead.id)
       .order('created_at', { ascending: false }).limit(1).maybeSingle()
-    onSent(data)
+    // Fallback otimista: se o registro ainda não apareceu (timing), cria localmente
+    const analysis = data ?? {
+      id: '', lead_id: lead.id, status: 'enviado' as const,
+      sent_at: new Date().toISOString(), responded_at: null,
+      approved_value: null, response_text: null, created_at: new Date().toISOString(),
+    }
+    onSent(analysis)
     onClose()
   }
 
