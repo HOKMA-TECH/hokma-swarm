@@ -147,11 +147,15 @@ Deno.serve(async (req) => {
 
     async function uploadBuf(buf: ArrayBuffer): Promise<string | null> {
       const filePath = `responses/${lead_id}/${Date.now()}_${att.filename}`
-      const blob     = new Blob([buf], { type: contentType || 'application/octet-stream' })
+      const mimeType = contentType || 'application/octet-stream'
+      const blob     = new Blob([buf], { type: mimeType })
       const { error: upErr } = await supabase.storage
-        .from('documentos').upload(filePath, blob, { upsert: true })
+        .from('documentos').upload(filePath, blob, { upsert: true, contentType: mimeType })
       if (upErr) { console.log('Upload erro:', JSON.stringify(upErr)); return null }
-      return supabase.storage.from('documentos').getPublicUrl(filePath).data.publicUrl
+      // Signed URL válida por 10 anos — funciona para bucket público e privado
+      const { data: signed } = await supabase.storage
+        .from('documentos').createSignedUrl(filePath, 60 * 60 * 24 * 365 * 10)
+      return signed?.signedUrl ?? null
     }
 
     function b64toBuffer(b64: string): ArrayBuffer {
@@ -168,8 +172,8 @@ Deno.serve(async (req) => {
         const url = await uploadBuf(b64toBuffer(b64))
         if (url) { meta.url = url; console.log(`Anexo salvo (b64): ${att.filename}`) }
       } catch (e) { console.log('Upload exc:', e) }
-    } else if (att.id && emailId) {
-      // Resend não inclui conteúdo na listagem — tenta endpoint individual
+    } else if (att.id && emailId && RESEND_API_KEY) {
+      // Resend não inclui conteúdo no webhook — busca via endpoint individual
       try {
         const attRes = await fetch(
           `https://api.resend.com/emails/receiving/${emailId}/attachments/${att.id}`,
@@ -178,16 +182,31 @@ Deno.serve(async (req) => {
         console.log(`GET attachment/${att.id} → ${attRes.status}`)
         if (attRes.ok) {
           const ct = attRes.headers.get('content-type') ?? ''
+          console.log(`Att content-type header: ${ct}`)
           if (ct.includes('application/json')) {
             const d = await attRes.json()
             console.log('Att JSON keys:', JSON.stringify(Object.keys(d ?? {})))
             const c = d?.content ?? d?.data ?? d?.body ?? ''
             if (c) {
               const url = await uploadBuf(b64toBuffer(c))
-              if (url) { meta.url = url; console.log(`Anexo salvo (json): ${att.filename}`) }
-            } else if (d?.url ?? d?.download_url) {
-              meta.url = d?.url ?? d?.download_url
-              console.log(`Anexo URL JSON: ${att.filename} → ${meta.url}`)
+              if (url) { meta.url = url; console.log(`Anexo salvo (json b64): ${att.filename}`) }
+            } else {
+              // JSON retornou URL externa — tenta baixar e re-hospedar no Supabase
+              const extUrl = d?.url ?? d?.download_url ?? d?.href ?? null
+              if (extUrl) {
+                console.log(`Tentando baixar URL externa: ${extUrl}`)
+                try {
+                  const extRes = await fetch(extUrl)
+                  if (extRes.ok) {
+                    const buf = await extRes.arrayBuffer()
+                    if (buf.byteLength > 0) {
+                      const url = await uploadBuf(buf)
+                      if (url) { meta.url = url; console.log(`Anexo re-hospedado: ${att.filename}`) }
+                    }
+                  }
+                } catch (e) { console.log('Download ext URL err:', e) }
+                if (!meta.url) { meta.url = extUrl; console.log(`Usando URL externa direta: ${extUrl}`) }
+              }
             }
           } else {
             // Resposta binária direta
@@ -203,8 +222,8 @@ Deno.serve(async (req) => {
 
       if (!meta.url) {
         const externalUrl = att.download_url ?? att.url ?? null
-        if (externalUrl) { meta.url = externalUrl; console.log(`Anexo URL direta: ${att.filename}`) }
-        else console.log(`Anexo sem conteúdo: ${att.filename}`)
+        if (externalUrl) { meta.url = externalUrl; console.log(`Fallback URL direta: ${att.filename}`) }
+        else console.log(`Anexo sem conteúdo acessível: ${att.filename}`)
       }
     }
 

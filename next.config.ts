@@ -21,8 +21,9 @@ const securityHeaders = [
       // Estilos: inline necessário para styled components em runtime
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      // Imagens: próprias + Supabase Storage + data: para canvas/pdf + Resend (fallback de anexos de email)
-      "img-src 'self' data: blob: https://*.supabase.co https://api.resend.com",
+      // Imagens: próprias + Supabase Storage + data: para canvas/pdf
+      // https: necessário para imagens inline de emails (banco pode usar qualquer CDN)
+      "img-src 'self' data: blob: https:",
       // Workers: pdfjs usa blob workers
       "worker-src 'self' blob:",
       // Frames: Turnstile usa iframe
