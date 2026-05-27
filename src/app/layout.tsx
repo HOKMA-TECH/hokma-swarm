@@ -15,11 +15,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  let fullyAuthenticated = false
+  if (user) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    const mfaPending = aal?.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel
+    fullyAuthenticated = !mfaPending
+  }
+
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
         <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-          {user && <Sidebar />}
+          {fullyAuthenticated && <Sidebar />}
           <main style={{ flex: 1, overflow: 'auto' }}>
             {children}
           </main>
