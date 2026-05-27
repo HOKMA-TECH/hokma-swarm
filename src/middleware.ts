@@ -33,8 +33,19 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    if (user && isLoginPage) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+    if (user) {
+      // Verifica nível AAL — se MFA está ativo mas não foi completado, bloqueia acesso
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      const mfaPending = aal?.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel
+
+      if (mfaPending && !isLoginPage) {
+        // Sessão AAL1 com MFA pendente — força voltar ao login para completar TOTP
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
+
+      if (!mfaPending && isLoginPage) {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
     }
   } catch {
     // Se auth falhar, redireciona para login — nunca expõe rotas protegidas
