@@ -71,17 +71,15 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const captchaToken = await getCaptchaToken()
-    if (!captchaToken) {
-      setError('Falha na verificação de segurança. Tente novamente.')
-      setLoading(false)
-      return
-    }
+    // token opcional: envia se o Turnstile devolver, mas NUNCA bloqueia o login.
+    // (se o captcha estiver ON no Supabase, ele exige o token no servidor; se OFF, ignora.)
+    let captchaToken = ''
+    try { captchaToken = await getCaptchaToken() } catch {}
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: { captchaToken },
+      ...(captchaToken ? { options: { captchaToken } } : {}),
     })
 
     if (error) {
