@@ -1,12 +1,13 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { NetworkBackground } from '@/components/layout/NetworkBackground'
-import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 
 type LoginStep = 'password' | 'totp'
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY as string
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -17,32 +18,78 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState('')
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null)
   const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null)
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
-  const turnstileRef = useRef<TurnstileInstance>(null)
   const router = useRouter()
   const supabase = createClient()
 
+  // ── Cloudflare Turnstile (invisível) ──
+  const turnstileRef = useRef<HTMLDivElement>(null)
+  const widgetId = useRef<string | null>(null)
+  const tokenResolver = useRef<((t: string) => void) | null>(null)
+
+  useEffect(() => {
+    function renderWidget() {
+      const ts = (window as any).turnstile
+      if (!ts || !turnstileRef.current || widgetId.current !== null || !TURNSTILE_SITE_KEY) return
+      widgetId.current = ts.render(turnstileRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        execution: 'execute', // só roda quando chamamos turnstile.execute() (no submit)
+        callback: (token: string) => { tokenResolver.current?.(token); tokenResolver.current = null },
+        'error-callback': () => { tokenResolver.current?.(''); tokenResolver.current = null },
+        'expired-callback': () => {},
+      })
+    }
+    if ((window as any).turnstile) { renderWidget(); return }
+    const SCRIPT_ID = 'cf-turnstile-script'
+    if (!document.getElementById(SCRIPT_ID)) {
+      const s = document.createElement('script')
+      s.id = SCRIPT_ID
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+      s.async = true
+      s.defer = true
+      s.onload = renderWidget
+      document.head.appendChild(s)
+    } else {
+      document.getElementById(SCRIPT_ID)?.addEventListener('load', renderWidget)
+    }
+  }, [])
+
+  // Executa o desafio invisível e devolve um token novo (single-use)
+  function getCaptchaToken(): Promise<string> {
+    const ts = (window as any).turnstile
+    if (!ts || widgetId.current === null) return Promise.resolve('')
+    return new Promise((resolve) => {
+      tokenResolver.current = resolve
+      try { ts.reset(widgetId.current) } catch {}
+      ts.execute(widgetId.current)
+      // segurança: se o Turnstile não responder em 15s, segue sem token
+      setTimeout(() => { if (tokenResolver.current) { tokenResolver.current('') ; tokenResolver.current = null } }, 15000)
+    })
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
-    if (!captchaToken) {
-      setError('Conclua a verificação de segurança.')
-      return
-    }
     setLoading(true)
     setError('')
+
+    // token opcional: envia se o Turnstile devolver, mas NUNCA bloqueia o login.
+    // (se o captcha estiver ON no Supabase, ele exige o token no servidor; se OFF, ignora.)
+    let captchaToken = ''
+    try { captchaToken = await getCaptchaToken() } catch {}
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: { captchaToken },
+      ...(captchaToken ? { options: { captchaToken } } : {}),
     })
 
     if (error) {
-      setError('Email ou senha inválidos.')
+      console.error('[LOGIN ERROR]', error.message, error.status, error)
+      if (error.message.includes('Invalid login credentials')) {
+        setError('Email ou senha inválidos.')
+      } else {
+        setError(error.message)
+      }
       setLoading(false)
-      // Reset captcha so user can try again
-      turnstileRef.current?.reset()
-      setCaptchaToken(null)
       return
     }
 
@@ -152,23 +199,17 @@ export default function LoginPage() {
               />
             </div>
 
-            <Turnstile
-              ref={turnstileRef}
-              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-              onSuccess={token => setCaptchaToken(token)}
-              onExpire={() => setCaptchaToken(null)}
-              onError={() => { setCaptchaToken(null); setError('Erro na verificação de segurança. Recarregue a página.') }}
-              options={{ theme: 'dark', size: 'invisible' }}
-            />
+            {/* Turnstile invisível (não ocupa espaço visual) */}
+            <div ref={turnstileRef} />
 
             {error && <p style={{ color: '#ef5350', fontSize: 12, margin: 0 }}>{error}</p>}
             <button
               type="submit"
-              disabled={loading || !captchaToken}
+              disabled={loading}
               style={{
                 background: '#10b981', border: 'none', borderRadius: 8, padding: '11px',
-                color: '#000', fontWeight: 700, fontSize: 14, cursor: loading || !captchaToken ? 'not-allowed' : 'pointer',
-                opacity: loading || !captchaToken ? 0.7 : 1
+                color: '#000', fontWeight: 700, fontSize: 14, cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1
               }}
             >
               {loading ? 'Verificando…' : 'Entrar'}
